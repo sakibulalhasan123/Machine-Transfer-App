@@ -1,0 +1,25 @@
+{
+  "name": "machine-server",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node machine-server/server.js",
+    "build": "npm install --force && npm install --force --prefix machine-client && npm run build --prefix machine-client"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0",
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
