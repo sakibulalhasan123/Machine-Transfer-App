@@ -49,7 +49,7 @@ function TransferMachine() {
 
   // ✅ Load factories on mount
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/factories`)
+    fetch(`${process.env.REACT_APP_API_URL}/api/factories`)
       .then((res) => res.json())
       .then((data) =>
         setFactories(Array.isArray(data) ? data : data.factories || [])
@@ -68,7 +68,7 @@ function TransferMachine() {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/factories/${selected.value}/machines`
+        `${process.env.REACT_APP_API_URL}/api/factories/${selected.value}/machines`
       );
       const text = await res.text();
       let data;
@@ -115,7 +115,7 @@ function TransferMachine() {
     const token = localStorage.getItem("authToken");
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/transfer/transfers`,
+        `${process.env.REACT_APP_API_URL}/api/transfer/transfers`,
         {
           method: "POST",
           headers: {

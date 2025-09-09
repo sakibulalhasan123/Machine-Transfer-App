@@ -52,12 +52,16 @@ function Dashboard() {
     const loadAll = async () => {
       try {
         // Fetch factories
-        const fRes = await fetch(`${process.env.REACT_APP_API_URL}/factories`);
+        const fRes = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/factories`
+        );
         const fJson = await fRes.json();
         setFactories(Array.isArray(fJson) ? fJson : fJson?.factories ?? []);
 
         // Fetch machines grouped by factory
-        const mRes = await fetch(`${process.env.REACT_APP_API_URL}/machines`);
+        const mRes = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/machines`
+        );
         const mJson = await mRes.json();
         const machinesByFactory = mJson.machinesByFactory || {};
 
@@ -70,7 +74,7 @@ function Dashboard() {
 
         // Fetch transfers
         const tRes = await fetch(
-          `${process.env.REACT_APP_API_URL}/transfer/transfer-history`
+          `${process.env.REACT_APP_API_URL}/api/transfer/transfer-history`
         );
         const tJson = await tRes.json();
         const { flat, total: tCount } = parseTransfers(tJson);

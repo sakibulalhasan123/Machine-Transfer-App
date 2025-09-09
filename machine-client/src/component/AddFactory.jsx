@@ -37,7 +37,7 @@ function AddFactory() {
     // console.log("Token sent:", token);
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/factories/add`,
+        `${process.env.REACT_APP_API_URL}/api/factories/add`,
         {
           method: "POST",
           headers: {

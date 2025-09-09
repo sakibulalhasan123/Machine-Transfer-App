@@ -11,7 +11,9 @@ function FactoryMachineList() {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/machines`);
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/machines`
+        );
         const data = await res.json();
 
         // data.machinesByFactory comes from backend

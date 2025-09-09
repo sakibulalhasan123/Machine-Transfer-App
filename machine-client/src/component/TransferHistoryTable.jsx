@@ -20,7 +20,7 @@ function TransferHistoryTable() {
     const fetchHistory = async () => {
       try {
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/transfer/transfer-history`
+          `${process.env.REACT_APP_API_URL}/api/transfer/transfer-history`
         );
         const data = await res.json();
         setMachines(Array.isArray(data) ? data : data.machines || []);

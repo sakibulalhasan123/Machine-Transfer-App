@@ -20,7 +20,9 @@ function FactoryList() {
   useEffect(() => {
     const fetchFactories = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/factories`);
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/factories`
+        );
         const data = await res.json();
         setFactories(Array.isArray(data) ? data : []);
       } catch (err) {

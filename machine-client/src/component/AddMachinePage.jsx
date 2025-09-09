@@ -21,7 +21,9 @@ function AddMachine() {
   useEffect(() => {
     const fetchFactories = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/factories`);
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/factories`
+        );
         if (!res.ok) throw new Error("Failed to fetch factories");
         const data = await res.json();
         setFactories(data);
@@ -63,7 +65,7 @@ function AddMachine() {
     const token = localStorage.getItem("authToken");
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/machines`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/machines`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +166,7 @@ function AddMachine() {
           return;
         }
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/machines/bulk`,
+          `${process.env.REACT_APP_API_URL}/api/machines/bulk`,
           {
             method: "POST",
             headers: {

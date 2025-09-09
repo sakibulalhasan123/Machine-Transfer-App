@@ -27,7 +27,7 @@ function Register() {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/auth/register`,
+        `${process.env.REACT_APP_API_URL}/api/auth/register`,
         {
           method: "POST",
           headers: {
