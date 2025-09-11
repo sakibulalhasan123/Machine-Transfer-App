@@ -1,5 +1,7 @@
-const Transfer = require("../models/Transfer");
+const Factory = require("../models/Factory");
 const Machine = require("../models/Machine");
+const Transfer = require("../models/Transfer");
+const User = require("../models/User");
 
 /**
  * Get all machines of a factory
@@ -103,7 +105,7 @@ exports.getTransferHistory = async (req, res) => {
         "machineCode machineCategory machineGroup factoryId"
       )
       .populate("transferedBy", "name email") // populate the user who transferred
-      .sort({ transferDate: -1 })
+      .sort({ transferDate: 1 })
       .lean();
 
     // Map transfers to machines

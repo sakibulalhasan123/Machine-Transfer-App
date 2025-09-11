@@ -6,4 +6,5 @@ router.post("/transfers", protect, transferController.createTransfer);
 router.get("/transfers", transferController.getTransfers);
 // GET transfer history
 router.get("/transfer-history", transferController.getTransferHistory);
+
 module.exports = router;
