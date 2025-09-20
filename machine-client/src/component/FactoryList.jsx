@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import Navbar from "./Navbar";
-import { PencilSquareIcon } from "@heroicons/react/24/solid"; // ✅ Heroicons import
+// import { PencilSquareIcon } from "@heroicons/react/24/solid"; // ✅ Heroicons import
 
 function FactoryList() {
   const [factories, setFactories] = useState([]);
@@ -99,11 +99,11 @@ function FactoryList() {
     XLSX.writeFile(workbook, "Factories.xlsx");
   };
 
-  /** 🔹 Handle Edit (example) */
-  const handleEdit = (factoryId) => {
-    alert(`Edit clicked for Factory ID: ${factoryId}`);
-    // এখানে আপনি edit modal / inline form ওপেন করতে পারবেন
-  };
+  // /** 🔹 Handle Edit (example) */
+  // const handleEdit = (factoryId) => {
+  //   alert(`Edit clicked for Factory ID: ${factoryId}`);
+  //   // এখানে আপনি edit modal / inline form ওপেন করতে পারবেন
+  // };
 
   return (
     <>
@@ -181,7 +181,7 @@ function FactoryList() {
                       <th className="px-4 py-3 border">Role</th>
                       <th className="px-4 py-3 border">Created Date</th>
                       <th className="px-4 py-3 border">Updated Date</th>
-                      <th className="px-4 py-3 border">Actions</th>
+                      {/* <th className="px-4 py-3 border">Actions</th> */}
                       {/* ✅ New column */}
                     </tr>
                   </thead>
@@ -207,14 +207,14 @@ function FactoryList() {
                         <td className="px-4 py-3">
                           {new Date(factory.updatedAt).toLocaleDateString()}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        {/* <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => handleEdit(factory._id)}
                             className="p-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 transition"
                           >
                             <PencilSquareIcon className="w-5 h-5 text-yellow-600" />
                           </button>
-                        </td>
+                        </td> */}
                       </tr>
                     ))}
                   </tbody>

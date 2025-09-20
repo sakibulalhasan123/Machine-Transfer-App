@@ -5,19 +5,21 @@ import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 
 function AddMachine() {
-  // ----------------- State -----------------
+  const [activeTab, setActiveTab] = useState("manual");
+  const [factories, setFactories] = useState([]);
   const [formData, setFormData] = useState({
     factoryId: "",
     machineCategory: "",
     machineGroup: "",
     machineCode: "",
   });
-  const [factories, setFactories] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState("");
   const [errors, setErrors] = useState({});
-  const [activeTab, setActiveTab] = useState("manual"); // "manual" | "bulk"
 
-  // ----------------- Fetch factories -----------------
+  const [bulkData, setBulkData] = useState([]);
+  const [bulkErrors, setBulkErrors] = useState([]);
+
+  // Load factories
   useEffect(() => {
     const fetchFactories = async () => {
       try {
@@ -26,16 +28,16 @@ function AddMachine() {
         );
         if (!res.ok) throw new Error("Failed to fetch factories");
         const data = await res.json();
-        setFactories(data);
+        setFactories(Array.isArray(data) ? data : data.factories || []);
       } catch (err) {
-        console.error("❌ Error fetching factories:", err.message);
+        console.error(err);
         Swal.fire("Error", "Failed to fetch factories", "error");
       }
     };
     fetchFactories();
   }, []);
 
-  // ----------------- Form Handlers -----------------
+  // ---------------- Manual Add ----------------
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "factoryId") {
@@ -56,12 +58,12 @@ function AddMachine() {
     return newErrors;
   };
 
-  // ----------------- Manual Add -----------------
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length)
       return setErrors(validationErrors);
+
     const token = localStorage.getItem("authToken");
 
     try {
@@ -75,7 +77,6 @@ function AddMachine() {
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         Swal.fire("Error", data.message || "Something went wrong", "error");
         return;
@@ -86,7 +87,6 @@ function AddMachine() {
         `Machine added successfully!\nCode: ${data.machine?.machineCode}`,
         "success"
       );
-
       setFormData({
         factoryId: "",
         machineCategory: "",
@@ -94,35 +94,53 @@ function AddMachine() {
         machineCode: "",
       });
       setSelectedLocation("");
+      setErrors({});
     } catch (err) {
       console.error(err);
       Swal.fire("Error", "Server error while adding machine", "error");
     }
   };
 
-  // ----------------- Bulk Upload -----------------
+  // ---------------- Bulk Add ----------------
   const handleDownloadTemplate = () => {
-    const sampleData = [
-      {
-        factoryName: factories[0]?.factoryName || "Factory A",
-        machineCategory: "CNC",
-        machineGroup: "Lathe",
-        machineCode: "M001",
-      },
-      {
-        factoryName: factories[1]?.factoryName || "Factory B",
-        machineCategory: "Press",
-        machineGroup: "Hydraulic",
-        machineCode: "M002",
-      },
-    ];
+    const sampleData = factories.slice(0, 2).map((f, i) => ({
+      factoryName: f.factoryName || `Factory ${i + 1}`,
+      machineCategory: "CNC",
+      machineGroup: "Lathe",
+      machineCode: `M00${i + 1}`,
+    }));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
-      wb,
+      XLSX.utils.book_new(),
       XLSX.utils.json_to_sheet(sampleData),
       "Machines"
     );
     XLSX.writeFile(wb, "Machines_Template.xlsx");
+  };
+
+  const checkDbDuplicates = async (codes) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/check-duplicates`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ machineCodes: codes }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to check duplicates");
+      const data = await res.json();
+      return data.duplicates || [];
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Could not verify duplicates in DB", "error");
+      return [];
+    }
   };
 
   const handleBulkUpload = (e) => {
@@ -136,70 +154,120 @@ function AddMachine() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(ws);
 
-        const mappedData = jsonData.map((row) => {
+        const mappedData = jsonData.map((row, index) => {
           const factory = factories.find(
             (f) =>
               f.factoryName.toLowerCase().trim() ===
               String(row.factoryName).toLowerCase().trim()
           );
           return {
+            id: index + 1,
             factoryId: factory?._id || null,
+            factoryName: row.factoryName || "",
             machineCategory: row.machineCategory || "",
             machineGroup: row.machineGroup || "",
             machineCode: row.machineCode || "",
           };
         });
 
-        if (mappedData.some((m) => !m.factoryId)) {
-          Swal.fire(
-            "Error",
-            "Some factories in the file do not exist.",
-            "error"
-          );
-          return;
-        }
-        // ➤ JWT token localStorage থেকে নেওয়া
-        const token = localStorage.getItem("authToken"); // same key as manual add
-        // console.log("Bulk upload token:", token); // debug
-        if (!token) {
-          Swal.fire("Error", "User not logged in.", "error");
-          return;
-        }
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/machines/bulk`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`, // এখানে token attach করা হলো
-            },
-            body: JSON.stringify(mappedData),
-          }
-        );
+        // Excel validation
+        const errors = mappedData.map((row) => {
+          const rowErrors = [];
+          if (!row.factoryId) rowErrors.push("Invalid factory");
+          if (!row.machineCategory) rowErrors.push("Category missing");
+          if (!row.machineGroup) rowErrors.push("Group missing");
+          if (!row.machineCode) rowErrors.push("Code missing");
+          return { id: row.id, errors: rowErrors };
+        });
 
-        const data = await res.json();
+        // Excel duplicates
+        const codeCounts = {};
+        mappedData.forEach((row) => {
+          if (!codeCounts[row.machineCode]) codeCounts[row.machineCode] = 0;
+          codeCounts[row.machineCode]++;
+        });
+        const excelDuplicates = mappedData
+          .filter((row) => codeCounts[row.machineCode] > 1)
+          .map((row) => row.id);
 
-        if (!res.ok) throw new Error(data.message || "Bulk upload failed");
+        // DB duplicates
+        const machineCodes = mappedData.map((row) => row.machineCode);
+        const dbDuplicates = await checkDbDuplicates(machineCodes);
 
-        Swal.fire(
-          "Success",
-          `${data.count} machines uploaded successfully!`,
-          "success"
-        );
+        const finalErrors = errors.map((row) => ({
+          id: row.id,
+          errors: [
+            ...row.errors,
+            ...(excelDuplicates.includes(row.id)
+              ? ["Duplicate code in Excel"]
+              : []),
+            ...(dbDuplicates.includes(mappedData[row.id - 1].machineCode)
+              ? ["Duplicate code in DB"]
+              : []),
+          ],
+        }));
+
+        setBulkData(mappedData);
+        setBulkErrors(finalErrors);
       } catch (err) {
         console.error(err);
-        Swal.fire("Error", err.message, "error");
+        Swal.fire("Error", "Invalid Excel file", "error");
       }
     };
     reader.readAsBinaryString(file);
   };
 
-  // ----------------- JSX -----------------
+  const handleBulkSubmit = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return Swal.fire("Error", "User not logged in", "error");
+
+    if (bulkErrors.some((r) => r.errors.length > 0)) {
+      return Swal.fire("Error", "Please fix errors before submitting", "error");
+    }
+
+    try {
+      const payload = bulkData.map(
+        ({ factoryId, machineCategory, machineGroup, machineCode }) => ({
+          factoryId,
+          machineCategory,
+          machineGroup,
+          machineCode,
+        })
+      );
+
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/bulk`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Bulk upload failed");
+
+      Swal.fire(
+        "Success",
+        `${data.count} machines uploaded successfully!`,
+        "success"
+      );
+      setBulkData([]);
+      setBulkErrors([]);
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", err.message, "error");
+    }
+  };
+
   return (
     <>
       <Navbar />
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 px-6">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-3xl border border-gray-200">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 px-6 py-8">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-4xl border border-gray-200">
           <div className="flex items-center border-b pb-4 mb-6">
             <FaIndustry className="text-gray-700 text-2xl mr-2" />
             <h2 className="text-xl font-semibold text-gray-800">
@@ -277,7 +345,7 @@ function AddMachine() {
                 />
               </div>
 
-              {/* Machine Category */}
+              {/* Category */}
               <div>
                 <label className="block text-gray-600 font-medium mb-1">
                   Category
@@ -301,7 +369,7 @@ function AddMachine() {
                 )}
               </div>
 
-              {/* Machine Group */}
+              {/* Group */}
               <div>
                 <label className="block text-gray-600 font-medium mb-1">
                   Group
@@ -323,7 +391,7 @@ function AddMachine() {
                 )}
               </div>
 
-              {/* Machine Code */}
+              {/* Code */}
               <div>
                 <label className="block text-gray-600 font-medium mb-1">
                   Code
@@ -345,7 +413,6 @@ function AddMachine() {
                 )}
               </div>
 
-              {/* Submit */}
               <div className="md:col-span-2 flex justify-end">
                 <button
                   type="submit"
@@ -359,8 +426,8 @@ function AddMachine() {
 
           {/* Bulk Upload */}
           {activeTab === "bulk" && (
-            <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
-              <p className="text-gray-600 mb-4">
+            <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-300 rounded-lg space-y-4">
+              <p className="text-gray-600">
                 Upload an Excel file (.xlsx) with machines
               </p>
               <div className="flex gap-4">
@@ -377,6 +444,66 @@ function AddMachine() {
                   className="block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
                 />
               </div>
+
+              {/* Preview Table */}
+              {bulkData.length > 0 && (
+                <div className="overflow-x-auto w-full mt-4">
+                  <table className="min-w-full border border-gray-300">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 border">#</th>
+                        <th className="px-4 py-2 border">Factory</th>
+                        <th className="px-4 py-2 border">Category</th>
+                        <th className="px-4 py-2 border">Group</th>
+                        <th className="px-4 py-2 border">Code</th>
+                        <th className="px-4 py-2 border">Errors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkData.map((row) => {
+                        const rowError =
+                          bulkErrors.find((r) => r.id === row.id)?.errors || [];
+                        return (
+                          <tr
+                            key={row.id}
+                            className={rowError.length ? "bg-red-100" : ""}
+                          >
+                            <td className="px-4 py-2 border">{row.id}</td>
+                            <td className="px-4 py-2 border">
+                              {row.factoryName}
+                            </td>
+                            <td className="px-4 py-2 border">
+                              {row.machineCategory}
+                            </td>
+                            <td className="px-4 py-2 border">
+                              {row.machineGroup}
+                            </td>
+                            <td className="px-4 py-2 border">
+                              {row.machineCode}
+                            </td>
+                            <td className="px-4 py-2 border text-red-600 text-sm">
+                              {rowError.join(", ")}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      onClick={handleBulkSubmit}
+                      disabled={bulkErrors.some((r) => r.errors.length > 0)}
+                      className={`bg-indigo-600 text-white px-6 py-2 rounded-md shadow hover:bg-indigo-700 transition ${
+                        bulkErrors.some((r) => r.errors.length > 0)
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      Submit Bulk Upload
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router(); // Create a new router instance
-const { protect } = require("../middleware/auth"); // JWT auth
+const { protect } = require("../middleware/authMiddleware"); // JWT auth
 // Import controller functions for machines
 const {
   addMachine,
   bulkAddMachines,
   getMachinesByFactory,
+  checkDuplicates,
 } = require("../controllers/machineController");
 
 // ==========================
@@ -22,6 +23,8 @@ router.post("/", protect, addMachine);
 // Calls the bulkAddMachines controller function
 router.post("/bulk", protect, bulkAddMachines);
 
+// Duplicate check (for Excel preview)
+router.post("/check-duplicates", protect, checkDuplicates);
 // ➤ Get all machines grouped by factory
 // GET /api/machines
 router.get("/", getMachinesByFactory);

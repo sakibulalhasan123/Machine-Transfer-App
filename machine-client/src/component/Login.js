@@ -4,6 +4,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock } from "lucide-react";
+import logoBanner from "../assets/logobanner.png"; // ✅ logo import (path ঠিক করো)
 
 function Login() {
   const { login } = useContext(AuthContext);
@@ -32,7 +33,7 @@ function Login() {
       if (!res.ok) throw new Error(data.message || "Login failed");
 
       login({ token: data.token, ...data.user });
-      localStorage.setItem("authToken", data.token); // ✅ Save token for future requests
+      localStorage.setItem("authToken", data.token);
       navigate("/");
     } catch (err) {
       setError(err.message);
@@ -47,9 +48,37 @@ function Login() {
         transition={{ duration: 0.6 }}
         className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md"
       >
-        <h2 className="text-2xl font-bold text-center text-indigo-700 mb-6">
+        {/* ✅ Logo Banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7 }}
+          className="flex justify-center mb-4"
+        >
+          <img
+            src={logoBanner}
+            alt="Four H Group"
+            className="h-16 object-contain"
+          />
+        </motion.div>
+
+        {/* ✅ Divider Line */}
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="h-0.5 bg-indigo-300 rounded-full mb-6 origin-center"
+        ></motion.div>
+
+        {/* ✅ Animated Welcome Back */}
+        {/* <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="text-2xl font-bold text-center text-indigo-700 mb-6"
+        >
           Welcome Back
-        </h2>
+        </motion.h2> */}
 
         {error && (
           <p className="text-red-500 text-sm text-center mb-4">{error}</p>

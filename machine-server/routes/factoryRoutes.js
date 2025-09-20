@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router(); // Create a new router instance
-const { protect } = require("../middleware/auth"); // JWT auth
+const { protect } = require("../middleware/authMiddleware"); // JWT auth
 // Import controller functions for factories
 const {
   addFactory,

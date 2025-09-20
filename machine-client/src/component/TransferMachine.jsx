@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import Navbar from "./Navbar";
 import Select from "react-select";
-
+import { AuthContext } from "../context/AuthContext";
 // ✅ Reusable select styles
 const customStyles = {
   control: (provided) => ({
@@ -40,13 +40,16 @@ function Message({ text }) {
 }
 
 function TransferMachine() {
+  const { user } = useContext(AuthContext); // ✅ get current user
   const [factories, setFactories] = useState([]);
-  const [fromFactory, setFromFactory] = useState(null);
+  // const [fromFactory, setFromFactory] = useState(null);
   const [toFactory, setToFactory] = useState(null);
   const [factoryMachines, setFactoryMachines] = useState([]);
   const [selectedMachines, setSelectedMachines] = useState([]);
+  const [remarks, setRemarks] = useState("");
   const [message, setMessage] = useState("");
-
+  const userFactory = user?.factoryId; // ✅ user factory
+  // Load all factories for "To Factory" dropdown
   // ✅ Load factories on mount
   useEffect(() => {
     fetch(`${process.env.REACT_APP_API_URL}/api/factories`)
@@ -57,65 +60,147 @@ function TransferMachine() {
       .catch((err) => console.error("❌ Error loading factories:", err));
   }, []);
 
-  // ✅ Fetch machines by selected factory
-  const handleFactoryChange = async (selected) => {
-    setFromFactory(selected);
-    setSelectedMachines([]);
-    setFactoryMachines([]);
-    setToFactory(null);
-
-    if (!selected) return;
-
-    try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/factories/${selected.value}/machines`
-      );
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (err) {
-        throw new Error(`Invalid JSON: ${text}`);
-      }
-
-      const machines = data.machines || [];
-      // Add dummy option if no machines
-      if (machines.length === 0) {
-        setFactoryMachines([
-          {
-            _id: "none",
-            machineCode: "No machines available",
-            machineCategory: "",
-          },
-        ]);
-      } else {
-        setFactoryMachines(machines);
-      }
-    } catch (err) {
-      console.error("❌ Error fetching machines:", err);
-      setMessage(`❌ Error fetching machines: ${err.message}`);
+  // Load machines for user factory
+  useEffect(() => {
+    if (!userFactory) {
+      setMessage("❌ No factory assigned to your user");
+      return;
     }
-  };
+
+    fetch(
+      `${process.env.REACT_APP_API_URL}/api/factories/${userFactory}/machines`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        const machines = data.machines || [];
+        // ✅ Show only "In-House" machines
+        const availableMachines = machines.filter(
+          (m) => m.status === "In-House"
+        );
+        setFactoryMachines(
+          availableMachines.length
+            ? availableMachines
+            : [
+                {
+                  _id: "none",
+                  machineCode: "No machines available",
+                  machineCategory: "",
+                },
+              ]
+        );
+      })
+      .catch((err) => {
+        console.error("❌ Error fetching machines:", err);
+        setMessage(`❌ Error fetching machines: ${err.message}`);
+      });
+  }, [userFactory]);
+  // // ✅ Fetch machines by selected factory
+  // const handleFactoryChange = async (selected) => {
+  //   setFromFactory(selected);
+  //   setSelectedMachines([]);
+  //   setFactoryMachines([]);
+  //   setToFactory(null);
+
+  //   if (!selected) return;
+
+  //   try {
+  //     const res = await fetch(
+  //       `${process.env.REACT_APP_API_URL}/api/factories/${selected.value}/machines`
+  //     );
+  //     const data = await res.json();
+  //     const machines = data.machines || [];
+
+  //     // Show only "In-House" machines
+  //     const availableMachines = machines.filter(
+  //       (m) => m.status === "In-House" && m.factoryId === selected.value
+  //     );
+  //     setFactoryMachines(
+  //       availableMachines.length
+  //         ? availableMachines
+  //         : [
+  //             {
+  //               _id: "none",
+  //               machineCode: "No machines available",
+  //               machineCategory: "",
+  //             },
+  //           ]
+  //     );
+  //   } catch (err) {
+  //     console.error("❌ Error fetching machines:", err);
+  //     setMessage(`❌ Error fetching machines: ${err.message}`);
+  //   }
+  // };
 
   // ✅ Handle machine transfer
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+
+  //   if (
+  //     !fromFactory ||
+  //     !toFactory ||
+  //     !selectedMachines.length ||
+  //     selectedMachines[0].value === "none"
+  //   ) {
+  //     setMessage(
+  //       "❌ Please select source factory, machines, and target factory."
+  //     );
+  //     return;
+  //   }
+
+  //   const token = localStorage.getItem("authToken");
+
+  //   try {
+  //     const res = await fetch(
+  //       `${process.env.REACT_APP_API_URL}/api/transfers`,
+  //       {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //         body: JSON.stringify({
+  //           fromFactory: userFactory, // ✅ always user's factory
+  //           // fromFactory: fromFactory.value,
+  //           toFactory: toFactory.value,
+  //           machineIds: selectedMachines.map((m) => m.value),
+  //           remarks: remarks || "",
+  //         }),
+  //       }
+  //     );
+
+  //     const data = await res.json();
+  //     if (!res.ok) throw new Error(data.error || "Transfer failed");
+
+  //     setMessage("✅ Machines transferred successfully!");
+  //     setFromFactory(null);
+  //     setToFactory(null);
+  //     setSelectedMachines([]);
+  //     setFactoryMachines([]);
+  //     setRemarks("");
+
+  //     setTimeout(() => setMessage(""), 2000);
+  //   } catch (err) {
+  //     console.error("❌ Transfer error:", err);
+  //     setMessage(`❌ Error: ${err.message}`);
+  //   }
+  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      !fromFactory ||
-      !toFactory ||
-      !selectedMachines.length ||
-      selectedMachines[0].value === "none"
-    ) {
+    const validMachines = selectedMachines.filter((m) => m.value !== "none");
+
+    if (!userFactory || !toFactory || !validMachines.length) {
       setMessage(
         "❌ Please select source factory, machines, and target factory."
       );
       return;
     }
+
     const token = localStorage.getItem("authToken");
+
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/transfer/transfers`,
+        `${process.env.REACT_APP_API_URL}/api/transfers`,
         {
           method: "POST",
           headers: {
@@ -123,30 +208,23 @@ function TransferMachine() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            fromFactory: fromFactory.value,
+            fromFactory: userFactory,
             toFactory: toFactory.value,
-            machineIds: selectedMachines.map((m) => m.value),
+            machineIds: validMachines.map((m) => m.value),
+            remarks: remarks || "",
           }),
         }
       );
 
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (err) {
-        throw new Error(`Invalid JSON response: ${text}`);
-      }
-
+      const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Transfer failed");
 
       setMessage("✅ Machines transferred successfully!");
-      setFromFactory(null);
-      setToFactory(null);
       setSelectedMachines([]);
-      setFactoryMachines([]);
-
-      setTimeout(() => setMessage(""), 3000);
+      setToFactory(null);
+      setRemarks("");
+      setFactoryMachines([]); // optionally reload machines
+      setTimeout(() => setMessage(""), 2000);
     } catch (err) {
       console.error("❌ Transfer error:", err);
       setMessage(`❌ Error: ${err.message}`);
@@ -163,20 +241,35 @@ function TransferMachine() {
           <Message text={message} />
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-            {/* From Factory */}
+            {/* From Factory (auto-selected & disabled) */}
             <div>
               <label className="block text-gray-600 font-medium mb-1">
                 From Factory
               </label>
               <Select
-                options={factories.map((f) => ({
-                  value: f._id,
-                  label: `${f.factoryName} (${f.factoryLocation})`,
-                }))}
-                value={fromFactory}
-                onChange={handleFactoryChange}
-                placeholder="Select source factory..."
-                isClearable
+                options={
+                  userFactory
+                    ? [
+                        {
+                          value: userFactory,
+                          label:
+                            factories.find((f) => f._id === userFactory)
+                              ?.factoryName || "My Factory",
+                        },
+                      ]
+                    : []
+                }
+                value={
+                  userFactory
+                    ? {
+                        value: userFactory,
+                        label:
+                          factories.find((f) => f._id === userFactory)
+                            ?.factoryName || "My Factory",
+                      }
+                    : null
+                }
+                isDisabled
                 styles={customStyles}
               />
             </div>
@@ -197,21 +290,32 @@ function TransferMachine() {
                 value={selectedMachines}
                 onChange={setSelectedMachines}
                 placeholder={
-                  fromFactory
-                    ? factoryMachines.length === 0 ||
-                      factoryMachines[0]._id === "none"
-                      ? "No machines available"
-                      : "Select one or more machines..."
-                    : "Select a factory first"
+                  factoryMachines.length === 0 ||
+                  factoryMachines[0]._id === "none"
+                    ? "No machines available"
+                    : "Select one or more machines..."
                 }
                 isClearable
                 isMulti
                 styles={customStyles}
                 isDisabled={
-                  !fromFactory ||
                   factoryMachines.length === 0 ||
                   factoryMachines[0]._id === "none"
                 }
+              />
+            </div>
+
+            {/* Remarks */}
+            <div>
+              <label className="block text-gray-600 font-medium mb-1">
+                Remarks (optional)
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-md p-2"
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Add any remarks for this transfer"
               />
             </div>
 
@@ -222,7 +326,7 @@ function TransferMachine() {
               </label>
               <Select
                 options={factories
-                  .filter((f) => f._id !== fromFactory?.value)
+                  .filter((f) => f._id !== userFactory)
                   .map((f) => ({
                     value: f._id,
                     label: `${f.factoryName} (${f.factoryLocation})`,
@@ -232,7 +336,7 @@ function TransferMachine() {
                 placeholder="Select target factory..."
                 isClearable
                 styles={customStyles}
-                isDisabled={!fromFactory}
+                isDisabled={!factories.length || !userFactory}
               />
             </div>
 

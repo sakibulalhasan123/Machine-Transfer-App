@@ -10,10 +10,16 @@ import AddMachinePage from "./component/AddMachinePage";
 import TransferMachine from "./component/TransferMachine";
 import TransferHistoryTable from "./component/TransferHistoryTable";
 import FactoryMachineList from "./component/FactoryWiseMachine";
-import TransferMachineList from "./component/TransferMachineList";
 import FactoryList from "./component/FactoryList";
 import UserList from "./component/UserList";
-import AllHistoryReport from "./component/AllHistoryReport";
+import MachineHistoryTable from "./component/MachineHistoryTable";
+import ReturnMachine from "./component/ReturnMachine";
+import SummaryReport from "./component/SummaryReport";
+import Maintenance from "./component/Maintenance";
+import MaintenanceList from "./component/MaintenanceList";
+import IdleStartForm from "./component/IdleStartForm";
+import IdleEndForm from "./component/IdleEndForm";
+import AllIdles from "./component/AllIdles";
 
 function App() {
   return (
@@ -82,6 +88,14 @@ function App() {
             }
           />
           <Route
+            path="/machine/return"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <ReturnMachine />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/transfer/history"
             element={
               <ProtectedRoute roles={["admin", "user"]}>
@@ -89,19 +103,60 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
-            path="/transfer/machines"
+            path="/history"
             element={
-              <ProtectedRoute roles={["admin", "user"]}>
-                <TransferMachineList />
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <MachineHistoryTable />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/all-history"
+            path="/summary"
             element={
               <ProtectedRoute roles={["superadmin", "admin", "user"]}>
-                <AllHistoryReport />
+                <SummaryReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/maintenance"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <Maintenance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/maintenances"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <MaintenanceList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/idles-start"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <IdleStartForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/idles-end"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <IdleEndForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/idles"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <AllIdles />
               </ProtectedRoute>
             }
           />

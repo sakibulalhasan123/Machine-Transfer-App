@@ -1,6 +1,6 @@
 const Machine = require("../models/Machine.js");
 
-// ✅ Helper: Validate a machine object
+// ✅ Validate required fields
 const validateMachine = ({
   factoryId,
   machineCategory,
@@ -10,21 +10,30 @@ const validateMachine = ({
   return factoryId && machineCategory && machineGroup && machineCode;
 };
 
-// ➤ Add a single machine
+// ➤ Add single machine
 const addMachine = async (req, res) => {
   try {
+    const { factoryId, machineCategory, machineGroup, machineCode } = req.body;
+
     if (!validateMachine(req.body)) {
       return res.status(400).json({ message: "⚠️ All fields are required" });
     }
 
-    const { factoryId, machineCategory, machineGroup, machineCode } = req.body;
+    const existing = await Machine.findOne({ machineCode });
+    if (existing) {
+      return res.status(400).json({
+        message: `⚠️ Machine code already exists: ${machineCode}`,
+      });
+    }
 
     const machine = new Machine({
       factoryId,
+      originFactory: factoryId,
       machineCategory,
       machineGroup,
       machineCode,
-      createdBy: req.user._id, // logged-in user ID
+      createdBy: req.user._id,
+      status: "In-House",
     });
 
     await machine.save();
@@ -34,11 +43,6 @@ const addMachine = async (req, res) => {
       machine,
     });
   } catch (error) {
-    if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "⚠️ Machine code already exists" });
-    }
     return res.status(500).json({
       message: "❌ Error adding machine",
       error: error.message,
@@ -48,34 +52,61 @@ const addMachine = async (req, res) => {
 
 // ➤ Bulk add machines
 const bulkAddMachines = async (req, res) => {
-  // console.log("Logged-in user:", req.user); // check req.user
   try {
     let machines = Array.isArray(req.body?.machines)
       ? req.body.machines
       : req.body;
-    // console.log("Incoming machines:", machines);
+
     if (!Array.isArray(machines) || machines.length === 0) {
       return res
         .status(400)
         .json({ message: "⚠️ Machines must be a non-empty array" });
     }
 
+    // Validate each machine
     const invalidMachine = machines.find((m) => !validateMachine(m));
     if (invalidMachine) {
-      // console.log("Invalid machine found:", invalidMachine);
       return res.status(400).json({
         message:
           "⚠️ Each machine must have factoryId, machineCategory, machineGroup, and machineCode",
       });
     }
-    // ➤ এখানে প্রতিটা মেশিনে createdBy যোগ করা হচ্ছে
+
+    // ✅ Check duplicates within request
+    const codes = machines.map((m) => m.machineCode);
+    const duplicatesInRequest = codes.filter(
+      (code, idx) => codes.indexOf(code) !== idx
+    );
+    if (duplicatesInRequest.length) {
+      return res.status(400).json({
+        message: `⚠️ Duplicate codes in request: ${[
+          ...new Set(duplicatesInRequest),
+        ].join(", ")}`,
+      });
+    }
+
+    // ✅ Check duplicates in DB
+    const existingMachines = await Machine.find({
+      machineCode: { $in: codes },
+    }).lean();
+    if (existingMachines.length) {
+      return res.status(400).json({
+        message: `⚠️ Machine code(s) already exist in DB: ${existingMachines
+          .map((m) => m.machineCode)
+          .join(", ")}`,
+      });
+    }
+
+    // Add extra fields
     machines = machines.map((m) => ({
       ...m,
-      createdBy: req.user._id, // লগged-in ইউজারের ID
+      createdBy: req.user._id,
+      status: "In-House",
+      originFactory: m.factoryId,
     }));
-    // console.log("Machines to insert:", machines);
+
     const inserted = await Machine.insertMany(machines, { ordered: true });
-    // console.log("Inserted machines:", inserted);
+
     return res.status(201).json({
       message: `✅ Successfully added ${inserted.length} machines`,
       count: inserted.length,
@@ -83,37 +114,41 @@ const bulkAddMachines = async (req, res) => {
       machines: inserted,
     });
   } catch (error) {
-    console.error("Bulk Add Error:", error);
-    const isDuplicate =
-      error.code === 11000 || error?.writeErrors?.some((e) => e.code === 11000);
-    if (isDuplicate) {
-      return res.status(400).json({
-        message: "⚠️ Machine code already exists",
-        error: error.message,
-      });
-    }
-
     return res.status(500).json({
       message: "❌ Error bulk adding machines",
       error: error.message,
     });
   }
 };
+
+// ➤ Check duplicates (for preview)
+const checkDuplicates = async (req, res) => {
+  try {
+    const { machineCodes } = req.body;
+    if (!Array.isArray(machineCodes))
+      return res.status(400).json({ duplicates: [] });
+
+    const existing = await Machine.find({
+      machineCode: { $in: machineCodes },
+    }).lean();
+    return res.json({ duplicates: existing.map((m) => m.machineCode) });
+  } catch (err) {
+    return res.status(500).json({ duplicates: [], error: err.message });
+  }
+};
+
 // ➤ Get all machines grouped by factory
 const getMachinesByFactory = async (req, res) => {
   try {
-    // Populate factory details
     const machines = await Machine.find()
-      .populate("factoryId", "factoryName factoryLocation name location")
+      .populate("factoryId", "factoryName factoryLocation")
+      .populate("originFactory", "factoryName factoryLocation")
       .sort({ createdAt: -1 });
 
-    // Group machines by factory
     const machinesByFactory = machines.reduce((acc, machine) => {
       const factory = machine.factoryId || {};
-      const factoryName =
-        factory.factoryName || factory.name || "Unknown Factory";
-      const factoryLocation =
-        factory.factoryLocation || factory.location || "—";
+      const factoryName = factory.factoryName || "Unknown Factory";
+      const factoryLocation = factory.factoryLocation || "—";
       const key = `${factoryName} | ${factoryLocation}`;
 
       if (!acc[key]) acc[key] = [];
@@ -129,8 +164,10 @@ const getMachinesByFactory = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   addMachine,
   bulkAddMachines,
+  checkDuplicates,
   getMachinesByFactory,
 };

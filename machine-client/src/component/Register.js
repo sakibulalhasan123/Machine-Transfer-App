@@ -1,5 +1,5 @@
 // component/Register.js
-import { useState, useContext } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "./Navbar";
@@ -8,13 +8,29 @@ import { User, Mail, Lock } from "lucide-react";
 function Register() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const [factories, setFactories] = useState([]);
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
     role: "user",
+    factoryId: "",
   });
   const [status, setStatus] = useState({ error: "", success: "" });
+  useEffect(() => {
+    const loadFactories = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/factories`
+        );
+        const data = await res.json();
+        setFactories(data.factories ?? data ?? []);
+      } catch (err) {
+        console.error("Error fetching factories:", err);
+      }
+    };
+    loadFactories();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -125,7 +141,21 @@ function Register() {
               <option value="admin">Admin</option>
               <option value="superadmin">Super Admin</option>
             </select>
-
+            {/* Factory select */}
+            <select
+              name="factoryId"
+              value={form.factoryId || ""}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            >
+              <option value="">Select Factory</option>
+              {factories.map((f) => (
+                <option key={f._id} value={f._id}>
+                  {f.factoryName} | {f.factoryLocation}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               className="w-full bg-indigo-600 text-white py-2.5 rounded-md font-medium shadow hover:bg-indigo-700 transition"

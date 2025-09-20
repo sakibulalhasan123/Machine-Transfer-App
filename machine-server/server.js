@@ -4,10 +4,12 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
 // Import route files
-const machineRoutes = require("./routes/machineRoutes");
+const authRoutes = require("./routes/authRoutes");
 const factoryRoutes = require("./routes/factoryRoutes");
-const authRoutes = require("./routes/auth");
+const machineRoutes = require("./routes/machineRoutes");
 const transferRoutes = require("./routes/transferRoutes");
+const maintenanceRoutes = require("./routes/maintenanceRoutes");
+const machineIdleRoutes = require("./routes/machineIdleRoutes");
 // Load environment variables from .env file
 dotenv.config();
 
@@ -27,20 +29,28 @@ app.use(express.urlencoded({ extended: true })); // form data পার্স �
 // Routes
 // ==========================
 
-// Routes for machines
-// All routes in machineRoutes.js will be prefixed with /api/machines
-app.use("/api/machines", machineRoutes);
-
+// Routes for Users
+// Routes for authentication (login/signup)
+app.use("/api/auth", authRoutes);
 // Routes for factories
 // All routes in factoryRoutes.js will be prefixed with /api/factories
 app.use("/api/factories", factoryRoutes);
 
-// Routes for transfer
-// All routes in factoryRoutes.js will be prefixed with /api/transfer
-app.use("/api/transfer", transferRoutes);
+// Routes for machines
+// All routes in machineRoutes.js will be prefixed with /api/machines
+app.use("/api/machines", machineRoutes);
 
-// Routes for authentication (login/signup)
-app.use("/api/auth", authRoutes);
+// Routes for transfer
+// All routes in transferRoutes.js will be prefixed with /api/transfers
+app.use("/api/transfers", transferRoutes);
+
+// Routes for maintenance
+// All routes in maintenanceRoutes.js will be prefixed with /api/maintenances
+app.use("/api/maintenances", maintenanceRoutes);
+
+// Routes for machine idle
+// All routes in machineIdleRoutes.js will be prefixed with /api/maintenances
+app.use("/api/machineidles", machineIdleRoutes);
 
 // ==========================
 // Serve React build in production

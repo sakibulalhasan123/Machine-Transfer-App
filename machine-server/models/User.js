@@ -11,6 +11,10 @@ const userSchema = new mongoose.Schema({
     enum: ["superadmin", "admin", "user"],
     default: "user",
   },
+  factoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Factory", // Factory মডেলের সাথে reference
+  },
 });
 
 // Hash password before saving
