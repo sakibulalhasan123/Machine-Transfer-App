@@ -27,6 +27,6 @@ router.post("/bulk", protect, bulkAddMachines);
 router.post("/check-duplicates", protect, checkDuplicates);
 // ➤ Get all machines grouped by factory
 // GET /api/machines
-router.get("/", getMachinesByFactory);
+router.get("/", protect, getMachinesByFactory);
 // Export the router so it can be used in app.js
 module.exports = router;

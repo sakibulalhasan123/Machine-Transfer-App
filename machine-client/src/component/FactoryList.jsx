@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import Navbar from "./Navbar";
-// import { PencilSquareIcon } from "@heroicons/react/24/solid"; // ✅ Heroicons import
 
 function FactoryList() {
   const [factories, setFactories] = useState([]);
@@ -19,9 +18,15 @@ function FactoryList() {
   // Fetch factories
   useEffect(() => {
     const fetchFactories = async () => {
+      const token = localStorage.getItem("authToken");
       try {
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/factories`
+          `${process.env.REACT_APP_API_URL}/api/factories`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
         const data = await res.json();
         setFactories(Array.isArray(data) ? data : []);
@@ -46,8 +51,8 @@ function FactoryList() {
         f.factoryName?.toLowerCase().includes(searchText) ||
         f.factoryLocation?.toLowerCase().includes(searchText) ||
         f.createdBy?.name?.toLowerCase().includes(searchText) ||
-        f.createdBy?.role?.toLowerCase().includes(searchText);
-
+        f.createdBy?.role?.toLowerCase().includes(searchText) ||
+        f.factoryNumber?.toLowerCase().includes(searchText); // ✅ এখন কাজ করবে
       let matchesDate = true;
       if (from || to) {
         const createdAt = new Date(f.createdAt);
@@ -98,12 +103,6 @@ function FactoryList() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Factories");
     XLSX.writeFile(workbook, "Factories.xlsx");
   };
-
-  // /** 🔹 Handle Edit (example) */
-  // const handleEdit = (factoryId) => {
-  //   alert(`Edit clicked for Factory ID: ${factoryId}`);
-  //   // এখানে আপনি edit modal / inline form ওপেন করতে পারবেন
-  // };
 
   return (
     <>
@@ -176,12 +175,12 @@ function FactoryList() {
                   <thead className="bg-indigo-50 text-indigo-800 uppercase text-xs font-semibold tracking-wide">
                     <tr>
                       <th className="px-4 py-3 border">Factory Name</th>
-                      <th className="px-4 py-3 border">Location</th>
+                      <th className="px-4 py-3 border">Factory Location</th>
                       <th className="px-4 py-3 border">Created By (Name)</th>
                       <th className="px-4 py-3 border">Role</th>
                       <th className="px-4 py-3 border">Created Date</th>
                       <th className="px-4 py-3 border">Updated Date</th>
-                      {/* <th className="px-4 py-3 border">Actions</th> */}
+                      <th className="px-4 py-3 border">Factory Number</th>
                       {/* ✅ New column */}
                     </tr>
                   </thead>
@@ -207,14 +206,9 @@ function FactoryList() {
                         <td className="px-4 py-3">
                           {new Date(factory.updatedAt).toLocaleDateString()}
                         </td>
-                        {/* <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => handleEdit(factory._id)}
-                            className="p-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 transition"
-                          >
-                            <PencilSquareIcon className="w-5 h-5 text-yellow-600" />
-                          </button>
-                        </td> */}
+                        <td className="px-4 py-3 font-medium text-gray-800">
+                          {factory.factoryNumber}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

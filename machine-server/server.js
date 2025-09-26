@@ -49,7 +49,7 @@ app.use("/api/transfers", transferRoutes);
 app.use("/api/maintenances", maintenanceRoutes);
 
 // Routes for machine idle
-// All routes in machineIdleRoutes.js will be prefixed with /api/maintenances
+// All routes in machineIdleRoutes.js will be prefixed with /api/machineidles
 app.use("/api/machineidles", machineIdleRoutes);
 
 // ==========================

@@ -18,10 +18,16 @@ function Register() {
   });
   const [status, setStatus] = useState({ error: "", success: "" });
   useEffect(() => {
+    const token = localStorage.getItem("authToken");
     const loadFactories = async () => {
       try {
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/factories`
+          `${process.env.REACT_APP_API_URL}/api/factories`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
         const data = await res.json();
         setFactories(data.factories ?? data ?? []);
@@ -142,20 +148,23 @@ function Register() {
               <option value="superadmin">Super Admin</option>
             </select>
             {/* Factory select */}
-            <select
-              name="factoryId"
-              value={form.factoryId || ""}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              required
-            >
-              <option value="">Select Factory</option>
-              {factories.map((f) => (
-                <option key={f._id} value={f._id}>
-                  {f.factoryName} | {f.factoryLocation}
-                </option>
-              ))}
-            </select>
+            {/* Factory select → শুধু superadmin ছাড়া বাকি role এর জন্য */}
+            {form.role !== "superadmin" && (
+              <select
+                name="factoryId"
+                value={form.factoryId || ""}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                required
+              >
+                <option value="">Select Factory</option>
+                {factories.map((f) => (
+                  <option key={f._id} value={f._id}>
+                    {f.factoryName} | {f.factoryLocation}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="submit"
               className="w-full bg-indigo-600 text-white py-2.5 rounded-md font-medium shadow hover:bg-indigo-700 transition"

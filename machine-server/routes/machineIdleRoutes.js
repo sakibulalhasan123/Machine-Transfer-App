@@ -22,6 +22,6 @@ router.post("/", protect, createIdle);
 router.patch("/:idleId/end", protect, endIdle);
 
 // ✅ Get all MachineIdle records (with optional filters)
-router.get("/", getAllMachineIdles);
+router.get("/", protect, getAllMachineIdles);
 
 module.exports = router;

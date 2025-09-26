@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const Machine = require("../models/Machine.js");
+const Counter = require("../models/Counter.js");
 
 // ✅ Validate required fields
 const validateMachine = ({
@@ -10,10 +12,37 @@ const validateMachine = ({
   return factoryId && machineCategory && machineGroup && machineCode;
 };
 
-// ➤ Add single machine
+// 🔹 Generate machine numbers inside a transaction
+async function getNextMachineNumbers(count, session) {
+  const year = new Date().getFullYear().toString().slice(-2);
+
+  const counter = await Counter.findOneAndUpdate(
+    { _id: `machine-${year}` },
+    { $inc: { seq: count } },
+    { new: true, upsert: true, session }
+  );
+
+  const startSeq = counter.seq - count + 1;
+  const machineNumbers = [];
+  for (let i = 0; i < count; i++) {
+    const seqString = (startSeq + i).toString().padStart(5, "0");
+    machineNumbers.push(`MAC-${year}-${seqString}`);
+  }
+
+  return machineNumbers;
+}
+
+// ➤ Add single machine (transaction-safe)
 const addMachine = async (req, res) => {
+  let session;
   try {
-    const { factoryId, machineCategory, machineGroup, machineCode } = req.body;
+    const {
+      factoryId,
+      machineCategory,
+      machineGroup,
+      machineCode,
+      purchaseDate,
+    } = req.body;
 
     if (!validateMachine(req.body)) {
       return res.status(400).json({ message: "⚠️ All fields are required" });
@@ -21,10 +50,13 @@ const addMachine = async (req, res) => {
 
     const existing = await Machine.findOne({ machineCode });
     if (existing) {
-      return res.status(400).json({
-        message: `⚠️ Machine code already exists: ${machineCode}`,
-      });
+      return res
+        .status(400)
+        .json({ message: `⚠️ Machine code already exists: ${machineCode}` });
     }
+    session = await mongoose.startSession();
+    session.startTransaction();
+    const [machineNumber] = await getNextMachineNumbers(1, session);
 
     const machine = new Machine({
       factoryId,
@@ -32,38 +64,47 @@ const addMachine = async (req, res) => {
       machineCategory,
       machineGroup,
       machineCode,
+      machineNumber,
       createdBy: req.user._id,
       status: "In-House",
+      purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
     });
 
-    await machine.save();
+    await machine.save({ session });
+    await session.commitTransaction();
+    session.endSession();
 
     return res.status(201).json({
       message: "✅ Machine added successfully",
       machine,
     });
   } catch (error) {
-    return res.status(500).json({
-      message: "❌ Error adding machine",
-      error: error.message,
-    });
+    if (session) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(500).json({
+        message: "❌ Error adding machine",
+        error: error.message,
+      });
+    }
   }
 };
 
-// ➤ Bulk add machines
+// ➤ Bulk add machines (transaction-safe)
 const bulkAddMachines = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     let machines = Array.isArray(req.body?.machines)
       ? req.body.machines
       : req.body;
-
     if (!Array.isArray(machines) || machines.length === 0) {
       return res
         .status(400)
         .json({ message: "⚠️ Machines must be a non-empty array" });
     }
 
-    // Validate each machine
     const invalidMachine = machines.find((m) => !validateMachine(m));
     if (invalidMachine) {
       return res.status(400).json({
@@ -72,7 +113,6 @@ const bulkAddMachines = async (req, res) => {
       });
     }
 
-    // ✅ Check duplicates within request
     const codes = machines.map((m) => m.machineCode);
     const duplicatesInRequest = codes.filter(
       (code, idx) => codes.indexOf(code) !== idx
@@ -85,10 +125,9 @@ const bulkAddMachines = async (req, res) => {
       });
     }
 
-    // ✅ Check duplicates in DB
-    const existingMachines = await Machine.find({
-      machineCode: { $in: codes },
-    }).lean();
+    const existingMachines = await Machine.find({ machineCode: { $in: codes } })
+      .lean()
+      .session(session);
     if (existingMachines.length) {
       return res.status(400).json({
         message: `⚠️ Machine code(s) already exist in DB: ${existingMachines
@@ -97,15 +136,25 @@ const bulkAddMachines = async (req, res) => {
       });
     }
 
-    // Add extra fields
-    machines = machines.map((m) => ({
+    const machineNumbers = await getNextMachineNumbers(
+      machines.length,
+      session
+    );
+    machines = machines.map((m, idx) => ({
       ...m,
+      machineNumber: machineNumbers[idx],
       createdBy: req.user._id,
       status: "In-House",
       originFactory: m.factoryId,
+      purchaseDate: m.purchaseDate ? new Date(m.purchaseDate) : undefined,
     }));
 
-    const inserted = await Machine.insertMany(machines, { ordered: true });
+    const inserted = await Machine.insertMany(machines, {
+      session,
+      ordered: true,
+    });
+    await session.commitTransaction();
+    session.endSession();
 
     return res.status(201).json({
       message: `✅ Successfully added ${inserted.length} machines`,
@@ -114,6 +163,8 @@ const bulkAddMachines = async (req, res) => {
       machines: inserted,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     return res.status(500).json({
       message: "❌ Error bulk adding machines",
       error: error.message,

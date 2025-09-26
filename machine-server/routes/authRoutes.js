@@ -8,14 +8,41 @@ const router = express.Router();
 
 // Register
 router.post("/register", async (req, res) => {
-  const { name, email, password, role, factoryId } = req.body;
   try {
+    let { name, email, password, role = "user", factoryId } = req.body;
+    // Normalize inputs
+    email = email?.trim().toLowerCase();
+    role = role?.toLowerCase();
+    // 1️⃣ Mandatory fields
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Name, email and password are required" });
+    }
+    //  2️⃣ Business rule: factory required for admin/user
+    if (role === "superadmin" && factoryId) {
+      return res
+        .status(400)
+        .json({ message: "Superadmin should not have a factory" });
+    }
+    if (role !== "superadmin" && !factoryId) {
+      return res
+        .status(400)
+        .json({ message: "Factory is required for admin and user roles" });
+    }
+
+    // 3️⃣ Duplicate check
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: "User already exists" });
     }
+    // 4️⃣ Build user data dynamically
+    const userData = { name: name.trim(), email, password, role };
+    if (role !== "superadmin" && factoryId) {
+      userData.factoryId = factoryId; // only assign if needed
+    }
 
-    const user = await User.create({ name, email, password, role, factoryId });
+    const user = await User.create(userData);
     res.status(201).json({
       message: "User registered successfully",
       user: {
@@ -23,7 +50,7 @@ router.post("/register", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        factoryId: user.factoryId, // return factory info
+        factoryId: user.factoryId || null, // return factory info
       },
     });
   } catch (err) {
@@ -42,7 +69,7 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, factoryId: user.factoryId },
       process.env.JWT_SECRET,
       {
         expiresIn: "7d",
@@ -66,7 +93,9 @@ router.post("/login", async (req, res) => {
 // 🔹 Get All Users
 router.get("/users", protect, allowRoles("superadmin"), async (req, res) => {
   try {
-    const users = await User.find({}, "name email role createdAt"); // only return safe fields
+    const users = await User.find()
+      .populate("factoryId", "factoryName factoryLocation")
+      .select("name email role factoryId createdAt");
     res.json({ users });
   } catch (err) {
     console.error("❌ Fetch Users Error:", err.message);

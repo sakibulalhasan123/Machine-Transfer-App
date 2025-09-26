@@ -5,6 +5,7 @@ import Navbar from "./Navbar";
 function TransferHistoryTable() {
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
   // filters
   const [search, setSearch] = useState("");
@@ -20,21 +21,61 @@ function TransferHistoryTable() {
   const [selectedMachine, setSelectedMachine] = useState(null);
 
   /** 🔹 Fetch transfers */
+  // useEffect(() => {
+  //   const fetchTransfers = async () => {
+  //     try {
+  //       const res = await fetch(
+  //         `${process.env.REACT_APP_API_URL}/api/transfers`
+  //       );
+  //       const data = await res.json();
+  //       setTransfers(Array.isArray(data.transfers) ? data.transfers : []);
+  //     } catch (err) {
+  //       console.error("❌ Error fetching transfers:", err);
+  //       setTransfers([]);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+  //   fetchTransfers();
+  // }, []);
   useEffect(() => {
     const fetchTransfers = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.error("No auth token found");
+        setMessage("❌ User not authenticated.");
+        setTransfers([]);
+        setLoading(false);
+        return;
+      }
+
       try {
+        setLoading(true);
+
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/transfers`
+          `${process.env.REACT_APP_API_URL}/api/transfers`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
+
+        if (!res.ok) throw new Error("Failed to fetch transfers");
+
         const data = await res.json();
         setTransfers(Array.isArray(data.transfers) ? data.transfers : []);
       } catch (err) {
         console.error("❌ Error fetching transfers:", err);
         setTransfers([]);
+        setMessage("❌ Failed to load transfers.");
       } finally {
         setLoading(false);
+        // Clear message after 2s
+        setTimeout(() => setMessage(""), 2000);
       }
     };
+
     fetchTransfers();
   }, []);
 
@@ -128,6 +169,9 @@ function TransferHistoryTable() {
           <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
             📋 Transfer History Report
           </h2>
+          <div>
+            {message && <p className="text-sm text-red-500">{message}</p>}
+          </div>
           {/* Header + Filters */}
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 mt-4">
             <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full md:w-auto">

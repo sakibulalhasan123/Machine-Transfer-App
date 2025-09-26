@@ -20,6 +20,8 @@ import MaintenanceList from "./component/MaintenanceList";
 import IdleStartForm from "./component/IdleStartForm";
 import IdleEndForm from "./component/IdleEndForm";
 import AllIdles from "./component/AllIdles";
+import PendingTransfers from "./component/PendingTransfers";
+import ReceiveReturn from "./component/ReceiveReturn";
 
 function App() {
   return (
@@ -88,10 +90,26 @@ function App() {
             }
           />
           <Route
+            path="/machine/transfer-receive"
+            element={
+              <ProtectedRoute roles={["admin", "user"]}>
+                <PendingTransfers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/machine/return"
             element={
               <ProtectedRoute roles={["superadmin", "admin", "user"]}>
                 <ReturnMachine />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/machine/return-receive"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <ReceiveReturn />
               </ProtectedRoute>
             }
           />

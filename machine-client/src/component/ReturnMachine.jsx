@@ -47,22 +47,35 @@ function ReturnMachine() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Auto-clear messages
+  const user = JSON.parse(localStorage.getItem("user"));
+  const userFactory = user?.factoryId;
+
+  // Auto-clear messages
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 3000);
     return () => clearTimeout(timer);
   }, [message]);
 
-  // 🔹 Load factories
+  // Load factories
   useEffect(() => {
     const fetchFactories = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setMessage("❌ User not authenticated.");
+        return;
+      }
       try {
         setLoading(true);
-        const res = await fetch(`${API_URL}/api/factories`);
+        const res = await fetch(`${API_URL}/api/factories`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) throw new Error("Failed to load factories");
         const data = await res.json();
-        setFactories(Array.isArray(data) ? data : data.factories || []);
+        const loadedFactories = Array.isArray(data)
+          ? data
+          : data.factories || [];
+        setFactories(loadedFactories);
       } catch (err) {
         console.error("❌ Error loading factories:", err);
         setMessage("❌ Failed to load factories.");
@@ -73,19 +86,33 @@ function ReturnMachine() {
     fetchFactories();
   }, []);
 
-  // 🔹 Load borrowed machines for factory
+  // Auto-set factory for normal users
   useEffect(() => {
-    if (!selectedFactory) {
-      setMachines([]);
-      setSelectedMachines([]);
-      return;
+    if (user?.role !== "superadmin" && factories.length > 0) {
+      const myFactory = factories.find((f) => f._id === userFactory);
+      if (myFactory) {
+        setSelectedFactory({
+          value: myFactory._id,
+          label: `${myFactory.factoryName} (${myFactory.factoryLocation})`,
+        });
+      }
     }
+  }, [factories, userFactory, user?.role]);
 
+  // Load borrowed machines when factory changes
+  useEffect(() => {
     const fetchMachines = async () => {
+      if (!selectedFactory) {
+        setMachines([]);
+        setSelectedMachines([]);
+        return;
+      }
+      const token = localStorage.getItem("authToken");
       try {
         setLoading(true);
         const res = await fetch(
-          `${API_URL}/api/transfers/machine/borrowed/${selectedFactory.value}`
+          `${API_URL}/api/transfers/machine/borrowed/${selectedFactory.value}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error("Failed to load machines");
         const data = await res.json();
@@ -94,6 +121,8 @@ function ReturnMachine() {
       } catch (err) {
         console.error("❌ Error fetching machines:", err);
         setMessage("❌ Failed to load machines.");
+        setMachines([]);
+        setSelectedMachines([]);
       } finally {
         setLoading(false);
       }
@@ -101,9 +130,14 @@ function ReturnMachine() {
     fetchMachines();
   }, [selectedFactory]);
 
-  // 🔹 Handle return
+  // Handle return
   const handleReturn = async (e) => {
     e.preventDefault();
+
+    if (!selectedFactory) {
+      setMessage("❌ Factory not loaded yet.");
+      return;
+    }
     if (!selectedMachines.length) {
       setMessage("❌ Please select machines to return.");
       return;
@@ -112,33 +146,52 @@ function ReturnMachine() {
     const token = localStorage.getItem("authToken");
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/transfers/machine/return`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          machineIds: selectedMachines.map((m) => m.value),
-        }),
+
+      // Debug log
+      console.log("POST body:", {
+        machineIds: selectedMachines.map((m) => m.value),
+        fromFactory: selectedFactory.value,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Return failed");
+      const res = await fetch(
+        `${API_URL}/api/transfers/machine/return/initiate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            machineIds: selectedMachines.map((m) => m.value),
+            fromFactory: selectedFactory.value, // 🔹 important for factoryAuth
+          }),
+        }
+      );
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        const message =
+          data?.error || data?.message || "Return initiation failed";
+        throw new Error(message);
+      }
 
       setMessage(
-        `✅ Returned ${data.returned.length}, Skipped ${data.skipped.length}`
+        `✅ Initiated return for ${data.initiated.length}, Skipped ${data.skipped}`
       );
-      setTimeout(() => setMessage(""), 2000);
+
       setMachines((prev) =>
-        prev.filter((m) => !data.returned.some((r) => r._id === m._id))
+        prev.filter((m) => !data.initiated.some((r) => r._id === m._id))
       );
       setSelectedMachines([]);
-      setSelectedFactory(null);
     } catch (err) {
-      console.error("❌ Return error:", err);
+      console.error("❌ Return Initiation error:", err);
       setMessage(`❌ Error: ${err.message}`);
-      setTimeout(() => setMessage(""), 2000);
     } finally {
       setLoading(false);
     }
@@ -149,7 +202,9 @@ function ReturnMachine() {
       <Navbar />
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-6">
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-3xl border border-gray-200">
-          <h2 className="text-xl font-semibold mb-6">Return Machines</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center">
+            Machine Return Initiation
+          </h2>
           <Message text={message} />
 
           <form onSubmit={handleReturn} className="grid grid-cols-1 gap-6">
@@ -159,14 +214,19 @@ function ReturnMachine() {
                 Select Factory
               </label>
               <Select
-                options={factories.map((f) => ({
-                  value: f._id,
-                  label: `${f.factoryName} (${f.factoryLocation})`,
-                }))}
+                options={
+                  user.role === "superadmin"
+                    ? factories.map((f) => ({
+                        value: f._id,
+                        label: `${f.factoryName} (${f.factoryLocation})`,
+                      }))
+                    : selectedFactory
+                    ? [selectedFactory]
+                    : []
+                }
                 value={selectedFactory}
                 onChange={setSelectedFactory}
-                placeholder="Select a factory..."
-                isClearable
+                isDisabled={user.role !== "superadmin"}
                 styles={customStyles}
               />
             </div>
@@ -174,7 +234,7 @@ function ReturnMachine() {
             {/* Machines Select */}
             <div>
               <label className="block text-gray-600 font-medium mb-1">
-                Select Machines to Return
+                Select Machines to Return Initiation
               </label>
               <Select
                 options={machines.map((m) => ({
@@ -208,7 +268,7 @@ function ReturnMachine() {
                     : "bg-indigo-600 text-white hover:bg-indigo-700"
                 }`}
               >
-                {loading ? "Processing..." : "Return"}
+                {loading ? "Processing..." : "Initiate Return"}
               </button>
             </div>
           </form>

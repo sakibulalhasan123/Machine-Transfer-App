@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const factoryAuth = require("../middleware/factoryAuth");
 const {
   getFactoryMachines,
   createMaintenance,
@@ -9,13 +10,18 @@ const {
 const { protect } = require("../middleware/authMiddleware"); // auth middleware
 
 // Fetch available machines for a factory
-router.get("/machines/factory/:factoryId", protect, getFactoryMachines);
+router.get(
+  "/machines/factory/:factoryId",
+
+  protect,
+  getFactoryMachines
+);
 
 // Create maintenance
-router.post("/", protect, createMaintenance);
+router.post("/", protect, factoryAuth, createMaintenance);
 
 // 🔹 GET all maintenances (with optional filters)
-router.get("/", getMaintenances);
+router.get("/", protect, getMaintenances);
 
 // Update Maintenace status
 router.patch("/:maintenanceId/status", updateMaintenanceStatus);

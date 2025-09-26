@@ -2,7 +2,7 @@ const Factory = require("../models/Factory.js");
 
 // @desc    Add new factory
 // @route   POST /api/factories
-// @access  Public
+// @access  Private (Logged-in users only)
 const addFactory = async (req, res) => {
   try {
     const { factoryName, factoryLocation } = req.body;
@@ -13,6 +13,16 @@ const addFactory = async (req, res) => {
         .json({ message: "Factory name and location are required" });
     }
 
+    // ✅ Check duplicate by name (case-insensitive)
+    const existingFactory = await Factory.findOne({
+      factoryName: { $regex: new RegExp("^" + factoryName + "$", "i") },
+    });
+
+    if (existingFactory) {
+      return res
+        .status(400)
+        .json({ message: "❌ Factory with this name already exists" });
+    }
     const newFactory = new Factory({
       factoryName,
       factoryLocation,
@@ -24,9 +34,19 @@ const addFactory = async (req, res) => {
       message: "✅ Factory created successfully",
       factory: newFactory,
     });
-    //console.log(req.user);
   } catch (error) {
-    res.status(500).json({ message: "❌ Server error", error: error.message });
+    console.error("🔥 Error creating factory:", error);
+
+    // Handle duplicate key error from MongoDB
+    if (error.code === 11000) {
+      return res
+        .status(400)
+        .json({ message: "❌ Factory name or code already exists" });
+    }
+    res.status(500).json({
+      message: "❌ Server error",
+      error: error.message,
+    });
   }
 };
 

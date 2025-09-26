@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+const Counter = require("./Counter");
 const machineSchema = new mongoose.Schema(
   {
     // ✅ Current location of the machine (transfer/update hobe)
@@ -45,14 +45,28 @@ const machineSchema = new mongoose.Schema(
     // ✅ Current status of the machine
     status: {
       type: String,
-      enum: ["In-House", "Borrowed", "Transferred"],
+      enum: [
+        "In-House",
+        "Transfer Initiated",
+        "Borrowed",
+        "Return Initiated",
+        "Maintenance In-Progress",
+        "Machine Idle In-Progress",
+      ],
       default: "In-House",
       index: true,
     },
-    // Purchase Date
+    // ✅ Purchase Date stored as Date (UTC)
     purchaseDate: {
       type: Date,
       required: false,
+    },
+
+    // 🔹 Auto-generated machine number
+    machineNumber: {
+      type: String,
+      unique: true,
+      index: true,
     },
   },
   { timestamps: true }

@@ -93,7 +93,11 @@ exports.createMaintenance = async (req, res) => {
         })
       )
     );
-
+    // ✅ Update machine status to "Maintenance In-Progress"
+    await Machine.updateMany(
+      { _id: { $in: machineIds } },
+      { $set: { status: "Maintenance In-Progress" } }
+    );
     res.status(201).json({
       message: "Maintenance record(s) created successfully",
       maintenances,
@@ -110,10 +114,18 @@ exports.getMaintenances = async (req, res) => {
     const { factoryId, status, machineId } = req.query;
 
     const filter = {};
-    if (factoryId) filter.factoryId = factoryId;
+
+    //if (factoryId) filter.factoryId = factoryId;
     if (status) filter.status = status;
     if (machineId) filter.machineId = machineId;
 
+    // Role check
+    if (req.user.role !== "superadmin") {
+      // Normal user শুধু নিজের factory
+      filter.factoryId = req.user.factoryId;
+    } else if (factoryId) {
+      filter.factoryId = factoryId;
+    }
     const maintenances = await Maintenance.find(filter)
       .populate("machineId", "machineCode machineCategory status")
       .populate("factoryId", "factoryName factoryLocation")
@@ -155,6 +167,12 @@ exports.updateMaintenanceStatus = async (req, res) => {
     // 5️⃣ Save
     await maintenance.save();
 
+    // 6️⃣ যদি Completed হয় → machine status আবার In-House করে দাও
+    if (newStatus === "Completed") {
+      await Machine.findByIdAndUpdate(maintenance.machineId, {
+        status: "In-House",
+      });
+    }
     res
       .status(200)
       .json({ message: "Status updated successfully", maintenance });

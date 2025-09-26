@@ -25,9 +25,16 @@ exports.getAvailableMachines = async (req, res) => {
 
     const idleIds = idleInProgress.map((i) => i.machineId.toString());
 
+    // // Filter out machines already in maintenance or idle
+    // const availableMachines = allMachines.filter(
+    //   (m) =>
+    //     !maintenanceIds.includes(m._id.toString()) &&
+    //     !idleIds.includes(m._id.toString())
+    // );
     // Filter out machines already in maintenance or idle
     const availableMachines = allMachines.filter(
       (m) =>
+        ["In-House", "Borrowed"].includes(m.status) && // ✅ status filter
         !maintenanceIds.includes(m._id.toString()) &&
         !idleIds.includes(m._id.toString())
     );
@@ -94,7 +101,11 @@ exports.createIdle = async (req, res) => {
       createdBy,
       status: "In-Progress",
     });
-
+    // ✅ Update machine status to "Machine Idle In-Progress"
+    await Machine.updateOne(
+      { _id: { $in: machineId } },
+      { $set: { status: "Machine Idle In-Progress" } }
+    );
     res.status(201).json({ idle });
   } catch (err) {
     console.error(err);
@@ -132,6 +143,13 @@ exports.endIdle = async (req, res) => {
     );
 
     await idle.save();
+
+    // 6️⃣ যদি Completed হয় → machine status আবার In-House করে দাও
+    if (idle.status === "Resolved") {
+      await Machine.findByIdAndUpdate(idle.machineId, {
+        status: "In-House",
+      });
+    }
 
     res.status(200).json({ idle });
   } catch (err) {

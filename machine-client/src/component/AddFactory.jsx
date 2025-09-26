@@ -10,6 +10,8 @@ function AddFactory() {
 
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,11 +35,12 @@ function AddFactory() {
       setErrors(validationErrors);
       return;
     }
+
     const token = localStorage.getItem("authToken");
-    // console.log("Token sent:", token);
     try {
+      setLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/factories/add`,
+        `${process.env.REACT_APP_API_URL}/api/factories`,
         {
           method: "POST",
           headers: {
@@ -49,17 +52,19 @@ function AddFactory() {
       );
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
+      if (!response.ok)
+        throw new Error(data.message || "Failed to add factory");
 
-      // console.log("✅ Factory Saved:", data);
+      // ✅ Success
       setSubmitted(true);
-      setFormData({
-        factoryName: "",
-        factoryLocation: "",
-      });
-      setTimeout(() => setSubmitted(false), 3000);
+      setFormData({ factoryName: "", factoryLocation: "" });
+      setTimeout(() => setSubmitted(false), 1000);
     } catch (error) {
       console.error("❌ Error:", error.message);
+      setErrorMessage(error.message);
+      setTimeout(() => setErrorMessage(""), 4000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,10 +81,17 @@ function AddFactory() {
             </h2>
           </div>
 
-          {/* Success Alert */}
+          {/* ✅ Success Alert */}
           {submitted && (
             <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-300 text-green-700 text-sm">
               ✅ Factory added successfully!
+            </div>
+          )}
+
+          {/* ❌ Error Alert */}
+          {errorMessage && (
+            <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-300 text-red-700 text-sm">
+              ❌ {errorMessage}
             </div>
           )}
 
@@ -136,9 +148,14 @@ function AddFactory() {
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="submit"
-                className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-md shadow hover:bg-indigo-700 transition"
+                disabled={loading}
+                className={`bg-indigo-600 text-white font-medium py-2 px-6 rounded-md shadow transition ${
+                  loading
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-indigo-700"
+                }`}
               >
-                Save Factory
+                {loading ? "Saving..." : "Save Factory"}
               </button>
             </div>
           </form>

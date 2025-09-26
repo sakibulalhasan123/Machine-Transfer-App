@@ -37,8 +37,13 @@ const transferSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Borrowed", "Transferred", "Returned"],
-      default: "Transferred",
+      enum: [
+        "Transfer In-Progress",
+        "Transferred",
+        "Returned In-Progress",
+        "Returned",
+      ],
+      default: "In-Progress",
       index: true,
     },
     remarks: {
