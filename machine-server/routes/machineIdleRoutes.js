@@ -8,7 +8,7 @@ const {
   getAllMachineIdles,
 } = require("../controllers/machineIdleController");
 const { protect } = require("../middleware/authMiddleware"); // JWT auth
-
+const factoryAuth = require("../middleware/factoryAuth");
 // ✅ Get machines available for idle in a factory
 router.get("/available/:factoryId", protect, getAvailableMachines);
 
@@ -16,7 +16,7 @@ router.get("/available/:factoryId", protect, getAvailableMachines);
 router.get("/in-progress/:factoryId", protect, getInProgressIdles);
 
 // ✅ Create a new idle record
-router.post("/", protect, createIdle);
+router.post("/", protect, factoryAuth, createIdle);
 
 // ✅ End an idle (update endTime)
 router.patch("/:idleId/end", protect, endIdle);

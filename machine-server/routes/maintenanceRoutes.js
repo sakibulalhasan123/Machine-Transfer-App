@@ -10,12 +10,7 @@ const {
 const { protect } = require("../middleware/authMiddleware"); // auth middleware
 
 // Fetch available machines for a factory
-router.get(
-  "/machines/factory/:factoryId",
-
-  protect,
-  getFactoryMachines
-);
+router.get("/machines/factory/:factoryId", protect, getFactoryMachines);
 
 // Create maintenance
 router.post("/", protect, factoryAuth, createMaintenance);

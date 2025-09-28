@@ -199,6 +199,14 @@ function Navbar() {
                         Register User
                       </Link>
                     )}
+                    {/* New: Update Password */}
+                    <Link
+                      to="/update-password"
+                      className="block w-full text-center px-4 py-2 text-gray-800 no-underline rounded-md hover:bg-gray-100 transition"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Change Password
+                    </Link>
                     <button
                       onClick={() => {
                         logout();

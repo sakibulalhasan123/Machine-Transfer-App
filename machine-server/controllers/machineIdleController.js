@@ -121,7 +121,18 @@ exports.endIdle = async (req, res) => {
 
     const idle = await MachineIdle.findById(idleId);
     if (!idle) return res.status(404).json({ error: "Idle record not found" });
+    // Machine বের করো
+    const machine = await Machine.findById(idle.machineId);
+    if (!machine) return res.status(404).json({ error: "Machine not found" });
 
+    // ✅ Factory check (যদি superadmin না হয়)
+    if (req.user.role !== "superadmin") {
+      if (String(req.user.factoryId) !== String(machine.factoryId)) {
+        return res
+          .status(403)
+          .json({ error: "Not authorized for this factory" });
+      }
+    }
     if (idle.status === "Resolved")
       return res.status(400).json({ error: "Idle already resolved" });
 

@@ -3,7 +3,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { protect, allowRoles } = require("../middleware/authMiddleware");
-
+const { updatePassword } = require("../controllers/userController");
 const router = express.Router();
 
 // Register
@@ -102,4 +102,7 @@ router.get("/users", protect, allowRoles("superadmin"), async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+router.put("/update-password", protect, updatePassword);
+
 module.exports = router;

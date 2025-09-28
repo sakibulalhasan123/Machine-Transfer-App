@@ -22,6 +22,7 @@ import IdleEndForm from "./component/IdleEndForm";
 import AllIdles from "./component/AllIdles";
 import PendingTransfers from "./component/PendingTransfers";
 import ReceiveReturn from "./component/ReceiveReturn";
+import UpdatePassword from "./component/UpdatePassword";
 
 function App() {
   return (
@@ -183,6 +184,14 @@ function App() {
             element={
               <ProtectedRoute roles={["superadmin"]}>
                 <UserList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/update-password"
+            element={
+              <ProtectedRoute roles={["superadmin", "admin", "user"]}>
+                <UpdatePassword />
               </ProtectedRoute>
             }
           />
