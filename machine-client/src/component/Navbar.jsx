@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import {
@@ -9,14 +9,79 @@ import {
   FaSignOutAlt,
   FaChevronDown,
 } from "react-icons/fa";
+import { socket } from "../socket";
+import Swal from "sweetalert2";
 
 function Navbar() {
   const { user, logout } = useContext(AuthContext);
+  const location = useLocation();
+
   const [isOpen, setIsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [dropdown, setDropdown] = useState(null);
-  const location = useLocation();
 
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+
+  // ----------------------------
+  // Socket notifications
+  // ----------------------------
+  useEffect(() => {
+    if (!user) return;
+
+    // ✅ Load last notifications from server
+    socket.emit("requestNotifications");
+
+    socket.on("initialNotifications", (data) => {
+      setNotifications(data);
+      const unread = data.filter((n) => !n.read).length;
+      setUnreadCount(unread);
+    });
+
+    // ✅ Real-time events
+    const handleFactoryAdded = (data) => addNotification(data);
+    const handleMachineAdded = (data) => addNotification(data);
+    const handleTransfer = (data) => addNotification(data);
+
+    socket.on("factoryAdded", handleFactoryAdded);
+    socket.on("machineAdded", handleMachineAdded);
+    socket.on("transferEvent", handleTransfer);
+
+    return () => {
+      socket.off("initialNotifications");
+      socket.off("factoryAdded", handleFactoryAdded);
+      socket.off("machineAdded", handleMachineAdded);
+      socket.off("transferEvent", handleTransfer);
+    };
+  }, [user]);
+
+  const addNotification = (data) => {
+    setNotifications((prev) => [
+      { ...data, time: new Date().toLocaleTimeString() },
+      ...prev,
+    ]);
+    setUnreadCount((count) => count + 1);
+
+    Swal.fire({
+      title: "📢 New Notification",
+      text: data.message,
+      icon: "info",
+      toast: true,
+      position: "top-end",
+      timer: 3000,
+      showConfirmButton: false,
+    });
+  };
+
+  const handleBellClick = () => {
+    setUnreadCount(0);
+    setShowNotifDropdown(!showNotifDropdown);
+  };
+
+  // ----------------------------
+  // Navigation menu
+  // ----------------------------
   const groupedLinks = [
     {
       title: "Factory",
@@ -61,7 +126,7 @@ function Navbar() {
         },
         {
           to: "/machine/transfer-receive",
-          label: "Transfer Machine Receive",
+          label: "Machine Transfer Receipt",
           roles: ["superadmin", "admin", "user"],
         },
         {
@@ -71,7 +136,7 @@ function Navbar() {
         },
         {
           to: "/machine/return-receive",
-          label: "Return Machine Receive",
+          label: "Machine Return Receipt",
           roles: ["superadmin", "admin", "user"],
         },
         {
@@ -113,7 +178,7 @@ function Navbar() {
       children: [
         {
           to: "/idles-start",
-          label: "Add Machine Idle",
+          label: "Start Machine Idle",
           roles: ["superadmin", "admin", "user"],
         },
         {
@@ -162,12 +227,40 @@ function Navbar() {
           {user && (
             <>
               {/* Notifications */}
-              <button className="relative hover:text-indigo-300 transition duration-200">
-                <FaBell className="text-xl" />
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  3
-                </span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={handleBellClick}
+                  className="relative hover:text-indigo-300"
+                >
+                  <FaBell className="text-xl" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifDropdown && (
+                  <div className="absolute right-0 mt-3 w-72 bg-white text-gray-800 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
+                    {notifications.length === 0 && (
+                      <div className="p-4 text-center text-gray-500 text-sm">
+                        No notifications
+                      </div>
+                    )}
+                    {notifications.map((note, i) => (
+                      <div
+                        key={i}
+                        className="px-4 py-2 border-b border-gray-200 hover:bg-gray-50 text-sm"
+                      >
+                        <p>{note.message}</p>
+                        <span className="text-xs text-gray-500">
+                          {note.time}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Profile Dropdown */}
               <div className="relative">

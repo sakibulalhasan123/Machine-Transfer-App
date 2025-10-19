@@ -128,7 +128,7 @@ export default function ReceiveReturn() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-6">
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-3xl border border-gray-200">
           <h2 className="text-2xl font-bold mb-6 text-center">
-            Return Machine Receive
+            Machine Return Receipt
           </h2>
           <Message text={message} />
 

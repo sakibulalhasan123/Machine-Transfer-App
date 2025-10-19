@@ -1,8 +1,6 @@
 const Factory = require("../models/Factory.js");
-
-// @desc    Add new factory
-// @route   POST /api/factories
-// @access  Private (Logged-in users only)
+const Notification = require("../models/Notification.js");
+// Add new factory
 const addFactory = async (req, res) => {
   try {
     const { factoryName, factoryLocation } = req.body;
@@ -10,7 +8,7 @@ const addFactory = async (req, res) => {
     if (!factoryName || !factoryLocation) {
       return res
         .status(400)
-        .json({ message: "Factory name and location are required" });
+        .json({ message: "Factory name and Factory location are required" });
     }
 
     // ✅ Check duplicate by name (case-insensitive)
@@ -26,9 +24,20 @@ const addFactory = async (req, res) => {
     const newFactory = new Factory({
       factoryName,
       factoryLocation,
-      createdBy: req.user._id, // logged-in user ID
+      createdBy: req.user._id,
     });
     await newFactory.save();
+
+    // ✅ Create notification
+    const io = req.app.get("io");
+    const notification = await Notification.create({
+      message: `🏭 New factory added: ${newFactory.factoryName}`,
+      createdBy: req.user._id,
+    });
+
+    // ✅ Emit to all connected clients
+    if (io) io.emit("factoryAdded", notification);
+    //Close live notification
 
     res.status(201).json({
       message: "✅ Factory created successfully",
@@ -49,7 +58,6 @@ const addFactory = async (req, res) => {
     });
   }
 };
-
 // Update factory by ID
 const updateFactory = async (req, res) => {
   try {
@@ -71,9 +79,7 @@ const updateFactory = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-// @desc    Get all factories
-// @route   GET /api/factories
-// @access  Public
+// Get all factories
 const getFactories = async (req, res) => {
   try {
     const factories = await Factory.find()

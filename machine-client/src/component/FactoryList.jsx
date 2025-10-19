@@ -88,17 +88,24 @@ function FactoryList() {
   const handleExportExcel = () => {
     const rows = filteredRows.map((f) => ({
       FactoryName: f.factoryName,
-      Location: f.factoryLocation,
+      FactoryLocation: f.factoryLocation,
       CreatedBy: f.createdBy?.name || "—",
       Role: f.createdBy?.role || "—",
-      CreatedDate: f.createdAt
-        ? new Date(f.createdAt).toLocaleDateString()
-        : "—",
-      UpdatedDate: f.updatedAt
-        ? new Date(f.updatedAt).toLocaleDateString()
-        : "—",
+      // CreatedDate: f.createdAt
+      //   ? new Date(f.createdAt).toLocaleDateString()
+      //   : "—",
+      CreatedDate: f.createdAt ? new Date(f.createdAt) : "—",
+      // UpdatedDate: f.updatedAt
+      //   ? new Date(f.updatedAt).toLocaleDateString()
+      //   : "—",
+      UpdatedDate: f.updatedAt ? new Date(f.updatedAt) : "—",
+      FactoryNumber: f.factoryNumber,
     }));
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // const worksheet = XLSX.utils.json_to_sheet(rows);
+    const worksheet = XLSX.utils.json_to_sheet(rows, {
+      dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
+    });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Factories");
     XLSX.writeFile(workbook, "Factories.xlsx");
@@ -201,10 +208,24 @@ function FactoryList() {
                           {factory.createdBy?.role || "—"}
                         </td>
                         <td className="px-4 py-3">
-                          {new Date(factory.createdAt).toLocaleDateString()}
+                          {new Date(factory.createdAt).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
                         </td>
                         <td className="px-4 py-3">
-                          {new Date(factory.updatedAt).toLocaleDateString()}
+                          {new Date(factory.updatedAt).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-800">
                           {factory.factoryNumber}

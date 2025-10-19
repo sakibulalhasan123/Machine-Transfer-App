@@ -140,9 +140,7 @@ function TransferMachine() {
       user.role === "superadmin" ? fromFactory?.value : userFactory;
 
     if (!sourceFactoryId || !toFactory || !validMachines.length) {
-      setMessage(
-        "❌ Please select source factory, machines, and target factory."
-      );
+      setMessage("❌ Please Select From Factory, Machines, and To Factory.");
       return;
     }
     // ✅ Prevent same factory transfer
@@ -242,7 +240,7 @@ function TransferMachine() {
             {/* Machines */}
             <div>
               <label className="block text-gray-600 font-medium mb-1">
-                Select Machines
+                Select Machines :
               </label>
               <Select
                 options={factoryMachines.map((m) => ({
@@ -264,7 +262,7 @@ function TransferMachine() {
             {/* Remarks */}
             <div>
               <label className="block text-gray-600 font-medium mb-1">
-                Remarks (optional)
+                Remarks (optional) :
               </label>
               <input
                 type="text"
@@ -278,7 +276,7 @@ function TransferMachine() {
             {/* To Factory */}
             <div>
               <label className="block text-gray-600 font-medium mb-1">
-                Transfer To
+                Transfer To :
               </label>
               <Select
                 options={factories
@@ -296,7 +294,7 @@ function TransferMachine() {
                 value={toFactory}
                 onChange={setToFactory}
                 isClearable
-                isDisabled={!(user.role === "superadmin" ? fromFactory : true)} // 🔹 Enable only if fromFactory selected
+                isDisabled={!(user.role === "superadmin" ? fromFactory : true)}
                 styles={customStyles}
               />
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import Navbar from "./Navbar";
+import Swal from "sweetalert2";
 
 function TransferHistoryTable() {
   const [transfers, setTransfers] = useState([]);
@@ -21,23 +22,7 @@ function TransferHistoryTable() {
   const [selectedMachine, setSelectedMachine] = useState(null);
 
   /** 🔹 Fetch transfers */
-  // useEffect(() => {
-  //   const fetchTransfers = async () => {
-  //     try {
-  //       const res = await fetch(
-  //         `${process.env.REACT_APP_API_URL}/api/transfers`
-  //       );
-  //       const data = await res.json();
-  //       setTransfers(Array.isArray(data.transfers) ? data.transfers : []);
-  //     } catch (err) {
-  //       console.error("❌ Error fetching transfers:", err);
-  //       setTransfers([]);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   fetchTransfers();
-  // }, []);
+
   useEffect(() => {
     const fetchTransfers = async () => {
       const token = localStorage.getItem("authToken");
@@ -121,6 +106,26 @@ function TransferHistoryTable() {
         );
 
   /** 🔹 Export Excel */
+  // const handleExportExcel = () => {
+  //   const rows = filteredRows.map((r) => ({
+  //     TransferId: r.transferId || "—",
+  //     MachineCode: r.machineId?.machineCode || "—",
+  //     FromFactory: r.fromFactory?.factoryName || "—",
+  //     ToFactory: r.toFactory?.factoryName || "—",
+  //     TransferDate: r.transferDate ? new Date(r.transferDate) : "—",
+  //     Status: r.status || "—",
+  //     Remarks: r.remarks || "—",
+  //     TransferredBy: r.transferedBy?.name || "—",
+  //   }));
+  //   // const worksheet = XLSX.utils.json_to_sheet(rows);
+  //   const worksheet = XLSX.utils.json_to_sheet(rows, {
+  //     dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
+  //   });
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Transfers");
+  //   XLSX.writeFile(workbook, "TransferHistory.xlsx");
+  // };
+
   const handleExportExcel = () => {
     const rows = filteredRows.map((r) => ({
       TransferId: r.transferId || "—",
@@ -128,16 +133,119 @@ function TransferHistoryTable() {
       FromFactory: r.fromFactory?.factoryName || "—",
       ToFactory: r.toFactory?.factoryName || "—",
       TransferDate: r.transferDate
-        ? new Date(r.transferDate).toLocaleDateString()
-        : "—",
+        ? { t: "d", v: new Date(r.transferDate), z: "dd-mmm-yyyy" }
+        : null,
       Status: r.status || "—",
       Remarks: r.remarks || "—",
       TransferredBy: r.transferedBy?.name || "—",
     }));
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    if (rows.length === 0) {
+      Swal.fire("No Data", "No transfer history to export.", "info");
+      return;
+    }
+
+    // ✅ Create blank worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+    // ✅ Add title & export date
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [["🔁 Machine Transfer History Report"]],
+      { origin: "A1" }
+    );
+
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [
+          `Exported on: ${new Date().toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}`,
+        ],
+      ],
+      { origin: "A2" }
+    );
+
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" }); // blank row
+
+    // ✅ Add data starting at row 4
+    XLSX.utils.sheet_add_json(worksheet, rows, {
+      origin: "A4",
+      skipHeader: false,
+    });
+
+    // ✅ Auto column width
+    const keys = Object.keys(rows[0] || {});
+    worksheet["!cols"] = keys.map((key) => {
+      const maxLength = Math.max(
+        key.length,
+        ...rows.map((row) => {
+          const cellValue = row[key];
+          let text = "";
+          if (!cellValue) return 1;
+          if (cellValue?.t === "d" && cellValue.v instanceof Date) {
+            text = cellValue.v.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+          } else {
+            text = cellValue.toString();
+          }
+          return text.length;
+        })
+      );
+      return { wch: maxLength + 3 };
+    });
+
+    // ✅ Merge and style title rows
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: keys.length - 1 } }, // Title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: keys.length - 1 } }, // Export date
+    ];
+
+    // ✅ Title style
+    worksheet["A1"].s = {
+      font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "2E75B6" } },
+      alignment: { horizontal: "center", vertical: "center" },
+    };
+
+    // ✅ Export date style
+    worksheet["A2"].s = {
+      font: { italic: true, color: { rgb: "555555" } },
+      alignment: { horizontal: "center" },
+    };
+
+    // ✅ Header row style (row 4)
+    const headerRow = 3; // zero-indexed
+    for (let C = 0; C < keys.length; C++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: C })];
+      if (cell) {
+        cell.s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "4F81BD" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "AAAAAA" } },
+            bottom: { style: "thin", color: { rgb: "AAAAAA" } },
+            left: { style: "thin", color: { rgb: "AAAAAA" } },
+            right: { style: "thin", color: { rgb: "AAAAAA" } },
+          },
+        };
+      }
+    }
+
+    // ✅ Freeze header row
+    worksheet["!freeze"] = { xSplit: 0, ySplit: 4 };
+
+    // ✅ Create workbook & export
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Transfers");
-    XLSX.writeFile(workbook, "TransferHistory.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Transfer History");
+    XLSX.writeFile(workbook, "TransferHistory.xlsx", { cellStyles: true });
   };
 
   /** 🔹 Reset filters */
@@ -166,9 +274,12 @@ function TransferHistoryTable() {
       <Navbar />
       <div className="mt-10 w-full max-w-7xl mx-auto px-4">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-          <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+          {/* <h3 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
             📋 Transfer History Report
-          </h2>
+          </h3> */}
+          <h3 className="text-2xl font-bold text-gray-800">
+            📋 Transfer History Report
+          </h3>
           <div>
             {message && <p className="text-sm text-red-500">{message}</p>}
           </div>
@@ -238,6 +349,7 @@ function TransferHistoryTable() {
                       <th className="px-4 py-3 border">From Factory</th>
                       <th className="px-4 py-3 border">To Factory</th>
                       <th className="px-4 py-3 border">Transfer Date</th>
+
                       <th className="px-4 py-3 border">Status</th>
                       <th className="px-4 py-3 border">Remarks</th>
                       <th className="px-4 py-3 border">Transferred By</th>
@@ -288,7 +400,14 @@ function TransferHistoryTable() {
                         </td>
                         <td className="px-4 py-3 text-gray-700">
                           {row.transferDate
-                            ? new Date(row.transferDate).toLocaleDateString()
+                            ? new Date(row.transferDate).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                }
+                              )
                             : "—"}
                         </td>
                         <td className="px-4 py-3 text-gray-700">
@@ -358,24 +477,44 @@ function TransferHistoryTable() {
       {modalOpen && selectedMachine && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-lg p-6 w-96 relative">
-            <h3 className="text-xl font-bold mb-4">Machine Details</h3>
+            <h3 className="text-xl font-bold mb-4 text-center">
+              Machine Details
+            </h3>
             <p>
-              <strong>Machine Code:</strong> {selectedMachine.machineCode}
+              <strong>Machine Code :</strong> {selectedMachine.machineCode}
             </p>
             <p>
-              <strong>Machine Category:</strong>{" "}
+              <strong>Machine Number :</strong>{" "}
+              {selectedMachine.machineNumber || "—"}
+            </p>
+            <p>
+              <strong>Machine Category :</strong>{" "}
               {selectedMachine.machineCategory || "—"}
             </p>
             <p>
-              <strong>Machine Group:</strong>{" "}
+              <strong>Machine Group :</strong>{" "}
               {selectedMachine.machineGroup || "—"}
             </p>
             <p>
-              <strong>Machine Origin Factory:</strong>{" "}
+              <strong>Machine Purchase Date :</strong>{" "}
+              {/* {selectedMachine.purchaseDate || "—"} */}
+              {selectedMachine.purchaseDate
+                ? new Date(selectedMachine.purchaseDate).toLocaleDateString(
+                    "en-GB",
+                    {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    }
+                  )
+                : "—"}
+            </p>
+            <p>
+              <strong>Machine Origin Factory :</strong>{" "}
               {selectedMachine.originFactory?.factoryName || "—"}
             </p>
             <p>
-              <strong>Factory Location:</strong>{" "}
+              <strong>Origin Factory Location :</strong>{" "}
               {selectedMachine.originFactory?.factoryLocation || "—"}
             </p>
             <button

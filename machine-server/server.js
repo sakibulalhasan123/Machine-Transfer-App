@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
+const http = require("http");
+const { Server } = require("socket.io");
 // Import route files
 const authRoutes = require("./routes/authRoutes");
 const factoryRoutes = require("./routes/factoryRoutes");
@@ -25,6 +27,37 @@ app.use(cors());
 // Parse incoming JSON requests
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // form data পার্স করার জন্য
+
+// ===== Create HTTP + Socket.IO Server =====
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // change this to your frontend URL if deployed
+    methods: ["GET", "POST"],
+  },
+});
+
+// Make io globally available
+app.set("io", io);
+
+// ===== Socket.IO Connection =====
+io.on("connection", async (socket) => {
+  console.log("User connected:", socket.id);
+
+  // Send last 20 notifications on connection
+  const Notification = require("./models/Notification");
+  const notifications = await Notification.find()
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .populate("createdBy", "name role");
+
+  socket.emit("allNotifications", notifications);
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
 // ==========================
 // Routes
 // ==========================
@@ -73,6 +106,6 @@ mongoose
 
     // Start Express server after successful DB connection
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   })
   .catch((err) => console.error("❌ DB Connection Error:", err));

@@ -331,6 +331,7 @@ exports.receiveReturn = async (req, res) => {
 
     // ✅ update transfer
     transfer.status = "Returned";
+    transfer.remarks = "Return received at origin factory";
     transfer.receivedBy = req.user._id;
     transfer.receivedDate = new Date();
     await transfer.save();
@@ -360,7 +361,8 @@ exports.getTransfers = async (req, res) => {
     const transfers = await Transfer.find()
       .populate({
         path: "machineId",
-        select: "machineCode machineCategory machineGroup originFactory",
+        select:
+          "machineCode machineCategory machineGroup originFactory machineNumber purchaseDate",
         populate: {
           path: "originFactory",
           select: "factoryName factoryLocation",
@@ -529,10 +531,6 @@ exports.getTransfers = async (req, res) => {
 //   }
 // };
 
-/**
- * Get full machine history with factory-aware + return-aware status
- * @route GET /api/transfers/machine/history
- */
 exports.getMachineHistory = async (req, res) => {
   try {
     // 1️⃣ সব মেশিন বের করো

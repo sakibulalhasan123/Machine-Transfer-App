@@ -194,6 +194,7 @@ const getMachinesByFactory = async (req, res) => {
     const machines = await Machine.find()
       .populate("factoryId", "factoryName factoryLocation")
       .populate("originFactory", "factoryName factoryLocation")
+      .populate("createdBy", "name email")
       .sort({ createdAt: -1 });
 
     const machinesByFactory = machines.reduce((acc, machine) => {

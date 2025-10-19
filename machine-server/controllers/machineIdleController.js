@@ -25,13 +25,6 @@ exports.getAvailableMachines = async (req, res) => {
 
     const idleIds = idleInProgress.map((i) => i.machineId.toString());
 
-    // // Filter out machines already in maintenance or idle
-    // const availableMachines = allMachines.filter(
-    //   (m) =>
-    //     !maintenanceIds.includes(m._id.toString()) &&
-    //     !idleIds.includes(m._id.toString())
-    // );
-    // Filter out machines already in maintenance or idle
     const availableMachines = allMachines.filter(
       (m) =>
         ["In-House", "Borrowed"].includes(m.status) && // ✅ status filter

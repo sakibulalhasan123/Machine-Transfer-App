@@ -19,5 +19,10 @@ router.post("/", protect, factoryAuth, createMaintenance);
 router.get("/", protect, getMaintenances);
 
 // Update Maintenace status
-router.patch("/:maintenanceId/status", updateMaintenanceStatus);
+router.patch(
+  "/:maintenanceId/status",
+  protect,
+  factoryAuth,
+  updateMaintenanceStatus
+);
 module.exports = router;

@@ -7,21 +7,21 @@ import Register from "./component/Register";
 import Dashboard from "./component/Dashboard";
 import AddFactory from "./component/AddFactory";
 import AddMachinePage from "./component/AddMachinePage";
-import TransferMachine from "./component/TransferMachine";
+import MachineTransferInitiation from "./component/MachineTransferInitiation";
 import TransferHistoryTable from "./component/TransferHistoryTable";
 import FactoryMachineList from "./component/FactoryWiseMachine";
 import FactoryList from "./component/FactoryList";
 import UserList from "./component/UserList";
 import MachineHistoryTable from "./component/MachineHistoryTable";
-import ReturnMachine from "./component/ReturnMachine";
+import MachineReturnInitiation from "./component/MachineReturnInitiation";
 import SummaryReport from "./component/SummaryReport";
 import Maintenance from "./component/Maintenance";
 import MaintenanceList from "./component/MaintenanceList";
 import IdleStartForm from "./component/IdleStartForm";
 import IdleEndForm from "./component/IdleEndForm";
 import AllIdles from "./component/AllIdles";
-import PendingTransfers from "./component/PendingTransfers";
-import ReceiveReturn from "./component/ReceiveReturn";
+import MachineTransferReceipt from "./component/MachineTransferReceipt";
+import MachineReturnReceipt from "./component/MachineReturnReceipt";
 import UpdatePassword from "./component/UpdatePassword";
 
 function App() {
@@ -86,7 +86,7 @@ function App() {
             path="/machine/transfer"
             element={
               <ProtectedRoute roles={["admin", "user"]}>
-                <TransferMachine />
+                <MachineTransferInitiation />
               </ProtectedRoute>
             }
           />
@@ -94,7 +94,7 @@ function App() {
             path="/machine/transfer-receive"
             element={
               <ProtectedRoute roles={["admin", "user"]}>
-                <PendingTransfers />
+                <MachineTransferReceipt />
               </ProtectedRoute>
             }
           />
@@ -102,7 +102,7 @@ function App() {
             path="/machine/return"
             element={
               <ProtectedRoute roles={["superadmin", "admin", "user"]}>
-                <ReturnMachine />
+                <MachineReturnInitiation />
               </ProtectedRoute>
             }
           />
@@ -110,7 +110,7 @@ function App() {
             path="/machine/return-receive"
             element={
               <ProtectedRoute roles={["superadmin", "admin", "user"]}>
-                <ReceiveReturn />
+                <MachineReturnReceipt />
               </ProtectedRoute>
             }
           />

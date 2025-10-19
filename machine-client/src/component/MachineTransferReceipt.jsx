@@ -343,7 +343,7 @@ function PendingTransfers() {
       <div className="min-h-screen bg-gray-50 px-6 py-8">
         <div className="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-md border border-gray-200">
           <h2 className="text-2xl font-bold mb-6 text-center">
-            Transfer Machine Receive
+            Machine Transfer Receipt
           </h2>
 
           {message && (

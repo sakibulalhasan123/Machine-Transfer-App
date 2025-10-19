@@ -42,7 +42,7 @@ const maintenanceSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ✅ Spare parts: শুধুমাত্র নাম
+    // ✅ Spare parts:
     spareParts: [
       {
         type: String, // শুধু partName
@@ -51,6 +51,7 @@ const maintenanceSchema = new mongoose.Schema(
     ],
     maintenanceDate: {
       type: Date,
+      required: true,
       default: Date.now,
     },
     status: {

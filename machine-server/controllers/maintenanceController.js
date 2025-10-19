@@ -53,6 +53,7 @@ exports.createMaintenance = async (req, res) => {
       description,
       spareParts,
       remarks,
+      maintenanceDate,
     } = req.body;
 
     if (!factoryId || !machineIds?.length || !maintenanceType || !description) {
@@ -90,6 +91,9 @@ exports.createMaintenance = async (req, res) => {
           spareParts,
           remarks: remarks || "",
           createdBy: req.user._id,
+          maintenanceDate: maintenanceDate
+            ? new Date(maintenanceDate)
+            : undefined, // ✅ user-provided
         })
       )
     );
@@ -130,6 +134,10 @@ exports.getMaintenances = async (req, res) => {
       .populate("machineId", "machineCode machineCategory status")
       .populate("factoryId", "factoryName factoryLocation")
       .populate("createdBy", "name email")
+      .populate({
+        path: "history.changedBy",
+        select: "name role email", // show only what you need
+      })
       .sort({ createdAt: -1 }); // Latest first
 
     res.status(200).json({ maintenances });
@@ -143,7 +151,7 @@ exports.getMaintenances = async (req, res) => {
 exports.updateMaintenanceStatus = async (req, res) => {
   try {
     const { maintenanceId } = req.params; // URL: /api/maintenances/:maintenanceId/status
-    const { newStatus, userId } = req.body; // newStatus = "Completed", userId = যিনি update করছেন
+    const { newStatus } = req.body; // newStatus = "Completed", userId = যিনি update করছেন
 
     // 1️⃣ Find maintenance
     const maintenance = await Maintenance.findById(maintenanceId);
@@ -160,7 +168,7 @@ exports.updateMaintenanceStatus = async (req, res) => {
     maintenance.history.push({
       previousStatus,
       newStatus,
-      changedBy: userId,
+      changedBy: req.user._id,
       changedAt: new Date(),
     });
 

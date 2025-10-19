@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
+
 import Navbar from "./Navbar";
 
 function FactoryMachineList() {
@@ -91,8 +92,168 @@ function FactoryMachineList() {
   }, [machinesByFactory, selectedFactory, search]);
 
   // Export to Excel
+  // const handleExportExcel = () => {
+  //   const rows = [];
+  //   Object.entries(filteredMachinesByFactory).forEach(
+  //     ([factoryKey, factoryMachines]) => {
+  //       const [factoryName, factoryLocation] = factoryKey.split(" | ");
+  //       factoryMachines.forEach((machine) => {
+  //         rows.push({
+  //           FactoryName: factoryName,
+  //           FactoryLocation: factoryLocation,
+  //           MachineCode: machine.machineCode,
+  //           MachineCategory: machine.machineCategory,
+  //           MachineGroup: machine.machineGroup,
+  //           MachineStatus: machine.status,
+  //           MachineNumber: machine.machineNumber,
+  //           PurchaseDate: machine.purchaseDate
+  //             ? new Date(machine.purchaseDate)
+  //             : "—",
+
+  //           CreatedBy: machine.createdBy?.name || "—",
+  //           CreatedDate: machine.createdAt ? new Date(machine.createdAt) : "—",
+  //           UpdatedDate: machine.updatedAt ? new Date(machine.updatedAt) : "—",
+  //         });
+  //       });
+  //     }
+  //   );
+  //   // const worksheet = XLSX.utils.json_to_sheet(rows);
+  //   const worksheet = XLSX.utils.json_to_sheet(rows, {
+  //     dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
+  //   });
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Factory Machines");
+  //   XLSX.writeFile(workbook, "FactoryMachineList.xlsx");
+  // };
+
+  // const handleExportExcel = () => {
+  //   const rows = [];
+
+  //   // Prepare data
+  //   Object.entries(filteredMachinesByFactory).forEach(
+  //     ([factoryKey, factoryMachines]) => {
+  //       const [factoryName, factoryLocation] = factoryKey.split(" | ");
+  //       factoryMachines.forEach((machine) => {
+  //         rows.push({
+  //           FactoryName: factoryName,
+  //           FactoryLocation: factoryLocation,
+  //           MachineCode: machine.machineCode,
+  //           MachineCategory: machine.machineCategory,
+  //           MachineGroup: machine.machineGroup,
+  //           MachineStatus: machine.status,
+  //           MachineNumber: machine.machineNumber,
+  //           PurchaseDate: machine.purchaseDate
+  //             ? new Date(machine.purchaseDate)
+  //             : null,
+  //           CreatedBy: machine.createdBy?.name || "—",
+  //           CreatedDate: machine.createdAt ? new Date(machine.createdAt) : null,
+  //           UpdatedDate: machine.updatedAt ? new Date(machine.updatedAt) : null,
+  //         });
+  //       });
+  //     }
+  //   );
+
+  //   // Start with a blank sheet
+  //   const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+  //   // Add title and export date
+  //   XLSX.utils.sheet_add_aoa(worksheet, [["🏭 Factory Machine List Report"]], {
+  //     origin: "A1",
+  //   });
+  //   XLSX.utils.sheet_add_aoa(
+  //     worksheet,
+  //     [
+  //       [
+  //         `Exported on: ${new Date().toLocaleDateString("en-GB", {
+  //           day: "2-digit",
+  //           month: "short",
+  //           year: "numeric",
+  //         })}`,
+  //       ],
+  //     ],
+  //     { origin: "A2" }
+  //   );
+  //   XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" }); // empty row
+
+  //   // Add data + headers starting at A4
+  //   XLSX.utils.sheet_add_json(worksheet, rows, {
+  //     origin: "A4",
+  //     skipHeader: false,
+  //   });
+
+  //   // Auto column width including dates
+  //   const keys = Object.keys(rows[0] || {});
+  //   const objectMaxLength = keys.map((key) => {
+  //     const maxLength = Math.max(
+  //       key.length, // header
+  //       ...rows.map((row) => {
+  //         const cellValue = row[key];
+  //         if (cellValue instanceof Date) {
+  //           return cellValue.toLocaleDateString("en-GB", {
+  //             day: "2-digit",
+  //             month: "short",
+  //             year: "numeric",
+  //           }).length;
+  //         } else if (cellValue) {
+  //           return cellValue.toString().length;
+  //         } else {
+  //           return 1; // for empty cells
+  //         }
+  //       })
+  //     );
+  //     return { wch: maxLength + 3 }; // add padding
+  //   });
+  //   worksheet["!cols"] = objectMaxLength;
+
+  //   // Merge and style title row
+  //   worksheet["!merges"] = [
+  //     { s: { r: 0, c: 0 }, e: { r: 0, c: keys.length - 1 } }, // title
+  //     { s: { r: 1, c: 0 }, e: { r: 1, c: keys.length - 1 } }, // export date
+  //   ];
+
+  //   worksheet["A1"].s = {
+  //     font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+  //     fill: { fgColor: { rgb: "4472C4" } },
+  //     alignment: { horizontal: "center", vertical: "center" },
+  //   };
+
+  //   worksheet["A2"].s = {
+  //     font: { italic: true, color: { rgb: "555555" } },
+  //     alignment: { horizontal: "center" },
+  //   };
+
+  //   // Style header row (row 4)
+  //   const headerRow = 3; // zero-indexed
+  //   for (let C = 0; C < keys.length; C++) {
+  //     const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: C })];
+  //     if (cell) {
+  //       cell.s = {
+  //         font: { bold: true, color: { rgb: "FFFFFF" } },
+  //         fill: { fgColor: { rgb: "4F81BD" } },
+  //         alignment: { horizontal: "center", vertical: "center" },
+  //         border: {
+  //           top: { style: "thin", color: { rgb: "AAAAAA" } },
+  //           bottom: { style: "thin", color: { rgb: "AAAAAA" } },
+  //           left: { style: "thin", color: { rgb: "AAAAAA" } },
+  //           right: { style: "thin", color: { rgb: "AAAAAA" } },
+  //         },
+  //       };
+  //     }
+  //   }
+
+  //   // Freeze header row (optional)
+  //   worksheet["!freeze"] = { xSplit: 0, ySplit: 4 };
+
+  //   // Export workbook
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Factory Machines");
+  //   XLSX.writeFile(workbook, "FactoryMachineList.xlsx", { cellStyles: true });
+  // };
+
   const handleExportExcel = () => {
     const rows = [];
+
+    // Prepare data
     Object.entries(filteredMachinesByFactory).forEach(
       ([factoryKey, factoryMachines]) => {
         const [factoryName, factoryLocation] = factoryKey.split(" | ");
@@ -101,18 +262,126 @@ function FactoryMachineList() {
             FactoryName: factoryName,
             FactoryLocation: factoryLocation,
             MachineCode: machine.machineCode,
-            Category: machine.machineCategory,
-            Group: machine.machineGroup,
-            CreatedDate: new Date(machine.createdAt).toLocaleString(),
-            UpdatedDate: new Date(machine.updatedAt).toLocaleString(),
+            MachineCategory: machine.machineCategory,
+            MachineGroup: machine.machineGroup,
+            MachineStatus: machine.status,
+            MachineNumber: machine.machineNumber,
+            PurchaseDate: machine.purchaseDate
+              ? { t: "d", v: new Date(machine.purchaseDate), z: "dd-mmm-yyyy" }
+              : null,
+            CreatedBy: machine.createdBy?.name || "—",
+            CreatedDate: machine.createdAt
+              ? { t: "d", v: new Date(machine.createdAt), z: "dd-mmm-yyyy" }
+              : null,
+            UpdatedDate: machine.updatedAt
+              ? { t: "d", v: new Date(machine.updatedAt), z: "dd-mmm-yyyy" }
+              : null,
           });
         });
       }
     );
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // Create blank worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+    // Add title and export date
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [["🏭 Factory Wise Machine List Report"]],
+      {
+        origin: "A1",
+      }
+    );
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [
+          `Exported on: ${new Date().toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}`,
+        ],
+      ],
+      { origin: "A2" }
+    );
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" }); // blank row
+
+    // Add data + headers starting at A4
+    XLSX.utils.sheet_add_json(worksheet, rows, {
+      origin: "A4",
+      skipHeader: false,
+    });
+
+    // Auto column width including dates
+    const keys = Object.keys(rows[0] || {});
+    worksheet["!cols"] = keys.map((key) => {
+      const maxLength = Math.max(
+        key.length,
+        ...rows.map((row) => {
+          const cellValue = row[key];
+          let text = "";
+          if (!cellValue) return 1;
+          if (cellValue?.t === "d" && cellValue.v instanceof Date) {
+            text = cellValue.v.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+          } else {
+            text = cellValue.toString();
+          }
+          return text.length;
+        })
+      );
+      return { wch: maxLength + 3 };
+    });
+
+    // Merge and style title rows
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: keys.length - 1 } }, // title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: keys.length - 1 } }, // export date
+    ];
+
+    worksheet["A1"].s = {
+      font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "4472C4" } },
+      alignment: { horizontal: "center", vertical: "center" },
+    };
+
+    worksheet["A2"].s = {
+      font: { italic: true, color: { rgb: "555555" } },
+      alignment: { horizontal: "center" },
+    };
+
+    // Style header row (row 4)
+    const headerRow = 3; // zero-indexed
+    for (let C = 0; C < keys.length; C++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: C })];
+      if (cell) {
+        cell.s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "4F81BD" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "AAAAAA" } },
+            bottom: { style: "thin", color: { rgb: "AAAAAA" } },
+            left: { style: "thin", color: { rgb: "AAAAAA" } },
+            right: { style: "thin", color: { rgb: "AAAAAA" } },
+          },
+        };
+      }
+    }
+
+    // Freeze header row
+    worksheet["!freeze"] = { xSplit: 0, ySplit: 4 };
+
+    // Create workbook & export
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Factory Machines");
-    XLSX.writeFile(workbook, "FactoryMachineList.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Factory Wise Machines");
+    XLSX.writeFile(workbook, "FactoryWiseMachineList.xlsx", {
+      cellStyles: true,
+    });
   };
 
   const handleResetFilters = () => {
@@ -158,7 +427,7 @@ function FactoryMachineList() {
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h3 className="text-2xl font-semibold text-gray-800">
+            <h3 className="text-2xl font-bold text-gray-800">
               🏭 Factory-wise Machine
             </h3>
             <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
@@ -291,6 +560,7 @@ function FactoryMachineList() {
                             <th className="px-4 py-3 border">Machine Status</th>
                             <th className="px-4 py-3 border">Machine Number</th>
                             <th className="px-4 py-3 border">Purchase Date</th>
+                            <th className="px-4 py-3 border">Created By</th>
                             <th className="px-4 py-3 border">Created Date</th>
                             {/* <th className="px-4 py-3 border">Updated Date</th> */}
                           </tr>
@@ -326,6 +596,9 @@ function FactoryMachineList() {
                                       year: "numeric",
                                     })
                                   : "—"}
+                              </td>
+                              <td className="px-4 py-3">
+                                {highlightMatch(machine.createdBy?.name || "—")}
                               </td>
                               <td className="px-4 py-3">
                                 {new Date(machine.createdAt).toLocaleString(

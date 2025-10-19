@@ -16,30 +16,56 @@ export default function IdleEndForm() {
   const [idleMachines, setIdleMachines] = useState([]);
   const [selectedIdle, setSelectedIdle] = useState(null);
   const [message, setMessage] = useState({ type: "", text: "" });
+
   const token = localStorage.getItem("authToken");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = user?.role;
+  const userFactoryId = user?.factoryId;
 
+  // Load factories
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/api/factories`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => setFactories(data))
-      .catch(() =>
-        setMessage({ type: "error", text: "❌ Error loading factories" })
-      );
-  }, [token]);
+    const loadFactories = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/factories`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const data = await res.json();
+        let factoryList = Array.isArray(data) ? data : data.factories || [];
 
-  // Fetch idle machines for factory
-  const handleFactoryChange = async (selected) => {
-    setSelectedFactory(selected);
-    setSelectedIdle(null);
-    setIdleMachines([]);
+        // Normal user → only assigned factory
+        if (userRole !== "superadmin") {
+          factoryList = factoryList.filter((f) => f._id === userFactoryId);
+        }
 
-    if (!selected) return;
+        setFactories(factoryList);
 
+        // Auto-select factory for normal users
+        if (userRole !== "superadmin" && factoryList.length > 0) {
+          const selected = {
+            value: factoryList[0]._id,
+            label: `${factoryList[0].factoryName} (${factoryList[0].factoryLocation})`,
+          };
+          setSelectedFactory(selected);
+          fetchIdleMachines(selected.value);
+        }
+      } catch (err) {
+        console.error(err);
+        setMessage({ type: "error", text: "❌ Error loading factories" });
+      }
+    };
+
+    loadFactories();
+  }, [token, userRole, userFactoryId]);
+
+  // Fetch idle machines
+  const fetchIdleMachines = async (factoryId) => {
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/machineIdles/in-progress/${selected.value}`,
+        `${process.env.REACT_APP_API_URL}/api/machineIdles/in-progress/${factoryId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
@@ -50,12 +76,20 @@ export default function IdleEndForm() {
     }
   };
 
+  // Handle factory change (for superadmin)
+  const handleFactoryChange = (selected) => {
+    setSelectedFactory(selected);
+    setSelectedIdle(null);
+    setIdleMachines([]);
+    if (selected) fetchIdleMachines(selected.value);
+  };
+
+  // End idle
   const handleEndIdle = async () => {
     if (!selectedIdle) {
       setMessage({ type: "error", text: "❌ Select an idle machine" });
       return;
     }
-
     try {
       const res = await fetch(
         `${process.env.REACT_APP_API_URL}/api/machineIdles/${selectedIdle.value}/end`,
@@ -70,11 +104,14 @@ export default function IdleEndForm() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to end idle");
-      setSelectedFactory(null);
+
       setMessage({ type: "success", text: "✅ Idle ended successfully!" });
       setTimeout(() => setMessage({ type: "", text: "" }), 2000);
+
+      // Reset selections
       setSelectedIdle(null);
       setIdleMachines(idleMachines.filter((i) => i._id !== selectedIdle.value));
+      if (userRole === "superadmin") setSelectedFactory(null);
     } catch (err) {
       console.error(err);
       setMessage({ type: "error", text: `❌ ${err.message}` });
@@ -88,6 +125,7 @@ export default function IdleEndForm() {
       <div className="flex justify-center mt-10">
         <div className="bg-white p-8 rounded shadow-md w-full max-w-md grid gap-4">
           <h2 className="text-xl font-semibold mb-4">End Machine Idle</h2>
+
           {message.text && (
             <div
               className={`p-2 rounded ${
@@ -100,18 +138,21 @@ export default function IdleEndForm() {
             </div>
           )}
 
+          {/* Factory */}
           <label>Factory</label>
           <Select
             options={factories.map((f) => ({
               value: f._id,
-              label: f.factoryName,
+              label: `${f.factoryName} (${f.factoryLocation})`,
             }))}
             value={selectedFactory}
             onChange={handleFactoryChange}
             styles={customStyles}
             placeholder="Select factory..."
+            isDisabled={userRole !== "superadmin"}
           />
 
+          {/* Idle Machines */}
           <label>Idle Machines</label>
           <Select
             options={idleMachines.map((i) => ({
@@ -131,7 +172,7 @@ export default function IdleEndForm() {
 
           <button
             onClick={handleEndIdle}
-            className="bg-indigo-600 text-white px-4 py-2 rounded"
+            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
           >
             End Idle
           </button>

@@ -43,7 +43,7 @@ const transferSchema = new mongoose.Schema(
         "Returned In-Progress",
         "Returned",
       ],
-      default: "In-Progress",
+      default: "Transfer In-Progress",
       index: true,
     },
     remarks: {
@@ -71,13 +71,13 @@ transferSchema.pre("save", async function (next) {
 
       // Format TRN
       const seqNumber = String(counter.seq).padStart(5, "0");
-      console.log(seqNumber);
+
       const transferNumber = (this.transferId = `TRN-${year}-${seqNumber}`);
-      console.log(transferNumber);
+
       // Default remarks for Returned
-      if (!this.remarks && this.status === "Returned") {
-        this.remarks = "Returned to origin factory";
-      }
+      // if (!this.remarks && this.status === "Returned") {
+      //   this.remarks = "Returned to origin factory";
+      // }
 
       next();
     } catch (err) {
