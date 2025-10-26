@@ -56,8 +56,8 @@ const maintenanceSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["In-Progress", "Completed"],
-      default: "In-Progress",
+      enum: ["Maintenance In-Progress", "Maintenance Completed"],
+      default: "Maintenance In-Progress",
       index: true,
     },
     remarks: {

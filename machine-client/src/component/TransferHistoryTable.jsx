@@ -82,14 +82,40 @@ function TransferHistoryTable() {
         row.status?.toLowerCase().includes(searchText) ||
         row.remarks?.toLowerCase().includes(searchText);
 
+      // let matchesDate = true;
+      // if (from || to) {
+      //   if (!row.transferDate) matchesDate = false;
+      //   else {
+      //     const date = new Date(row.transferDate.split("T")[0]);
+      //     matchesDate = (!from || date >= from) && (!to || date <= to);
+      //   }
+      // }
       let matchesDate = true;
+
       if (from || to) {
-        if (!row.transferDate) matchesDate = false;
-        else {
-          const date = new Date(row.transferDate.split("T")[0]);
-          matchesDate = (!from || date >= from) && (!to || date <= to);
-        }
+        const transferDate = row.transferDate
+          ? new Date(row.transferDate.split("T")[0])
+          : null;
+
+        const approvedDate = row.approvedDate
+          ? new Date(row.approvedDate.split("T")[0])
+          : null;
+
+        const inTransferRange =
+          transferDate &&
+          (!from || transferDate >= from) &&
+          (!to || transferDate <= to);
+
+        const inApprovedRange =
+          approvedDate &&
+          (!from || approvedDate >= from) &&
+          (!to || approvedDate <= to);
+
+        // ✅ এখন যে কোনো একটার তারিখ মিলে গেলেই true
+        matchesDate = inTransferRange || inApprovedRange;
       }
+
+      // return matchesSearch && matchesDate;
       return matchesSearch && matchesDate;
     });
   }, [transfers, search, fromDate, toDate]);
@@ -105,39 +131,22 @@ function TransferHistoryTable() {
           currentPage * rowsPerPage
         );
 
-  /** 🔹 Export Excel */
-  // const handleExportExcel = () => {
-  //   const rows = filteredRows.map((r) => ({
-  //     TransferId: r.transferId || "—",
-  //     MachineCode: r.machineId?.machineCode || "—",
-  //     FromFactory: r.fromFactory?.factoryName || "—",
-  //     ToFactory: r.toFactory?.factoryName || "—",
-  //     TransferDate: r.transferDate ? new Date(r.transferDate) : "—",
-  //     Status: r.status || "—",
-  //     Remarks: r.remarks || "—",
-  //     TransferredBy: r.transferedBy?.name || "—",
-  //   }));
-  //   // const worksheet = XLSX.utils.json_to_sheet(rows);
-  //   const worksheet = XLSX.utils.json_to_sheet(rows, {
-  //     dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
-  //   });
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Transfers");
-  //   XLSX.writeFile(workbook, "TransferHistory.xlsx");
-  // };
-
   const handleExportExcel = () => {
     const rows = filteredRows.map((r) => ({
       TransferId: r.transferId || "—",
       MachineCode: r.machineId?.machineCode || "—",
       FromFactory: r.fromFactory?.factoryName || "—",
       ToFactory: r.toFactory?.factoryName || "—",
-      TransferDate: r.transferDate
+      TransferInitiationDate: r.transferDate
         ? { t: "d", v: new Date(r.transferDate), z: "dd-mmm-yyyy" }
         : null,
-      Status: r.status || "—",
+      TransferReceivedDate: r.approvedDate
+        ? { t: "d", v: new Date(r.approvedDate), z: "dd-mmm-yyyy" }
+        : null,
+      CurrentStatus: r.status || "—",
       Remarks: r.remarks || "—",
-      TransferredBy: r.transferedBy?.name || "—",
+      TransferInitiatedBy: r.transferedBy?.name || "—",
+      TransferReceivedBy: r.approvedBy?.name || "—",
     }));
 
     if (rows.length === 0) {
@@ -274,12 +283,9 @@ function TransferHistoryTable() {
       <Navbar />
       <div className="mt-10 w-full max-w-7xl mx-auto px-4">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-          {/* <h3 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+          <h2 className="text-3xl font-bold text-center text-indigo-700 mb-8">
             📋 Transfer History Report
-          </h3> */}
-          <h3 className="text-2xl font-bold text-gray-800">
-            📋 Transfer History Report
-          </h3>
+          </h2>
           <div>
             {message && <p className="text-sm text-red-500">{message}</p>}
           </div>
@@ -348,11 +354,19 @@ function TransferHistoryTable() {
                       <th className="px-4 py-3 border">Machine Code</th>
                       <th className="px-4 py-3 border">From Factory</th>
                       <th className="px-4 py-3 border">To Factory</th>
-                      <th className="px-4 py-3 border">Transfer Date</th>
+                      <th className="px-4 py-3 border">
+                        Transfer Initiation Date
+                      </th>
+                      <th className="px-4 py-3 border">
+                        Transfer Received Date
+                      </th>
 
-                      <th className="px-4 py-3 border">Status</th>
+                      <th className="px-4 py-3 border">Current Status</th>
                       <th className="px-4 py-3 border">Remarks</th>
-                      <th className="px-4 py-3 border">Transferred By</th>
+                      <th className="px-4 py-3 border">
+                        Transfer Initiated By
+                      </th>
+                      <th className="px-4 py-3 border">Transfer Received By</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -361,44 +375,38 @@ function TransferHistoryTable() {
                         key={row._id}
                         className="hover:bg-blue-50/50 even:bg-gray-50 transition"
                       >
-                        <td className="px-4 py-3 font-medium text-blue-600">
+                        <td className="px-2 py-2 font-medium text-blue-600">
                           {row.transferId || "—"}
                         </td>
                         <td
-                          className="px-4 py-3 font-medium text-blue-600 cursor-pointer hover:underline"
+                          className="px-2 py-2 font-medium text-blue-600 cursor-pointer hover:underline"
                           onClick={() => openModal(row.machineId)}
                         >
                           {row.machineId?.machineCode || "—"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           {row.fromFactory ? (
                             <>
                               <span className="font-medium text-gray-700">
                                 {row.fromFactory.factoryName}
                               </span>
-                              <span className="text-gray-500 text-xs ml-1">
-                                ({row.fromFactory.factoryLocation})
-                              </span>
                             </>
                           ) : (
                             <span className="text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           {row.toFactory ? (
                             <>
                               <span className="font-medium text-gray-700">
                                 {row.toFactory.factoryName}
                               </span>
-                              <span className="text-gray-500 text-xs ml-1">
-                                ({row.toFactory.factoryLocation})
-                              </span>
                             </>
                           ) : (
                             <span className="text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-gray-700">
+                        <td className="px-2 py-2 text-gray-700">
                           {row.transferDate
                             ? new Date(row.transferDate).toLocaleDateString(
                                 "en-GB",
@@ -410,14 +418,29 @@ function TransferHistoryTable() {
                               )
                             : "—"}
                         </td>
-                        <td className="px-4 py-3 text-gray-700">
+                        <td className="px-2 py-2 text-gray-700">
+                          {row.approvedDate
+                            ? new Date(row.approvedDate).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                }
+                              )
+                            : "—"}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700">
                           {row.status || "—"}
                         </td>
-                        <td className="px-4 py-3 text-gray-700">
+                        <td className="px-2 py-2 text-gray-700">
                           {row.remarks || "—"}
                         </td>
-                        <td className="px-4 py-3 text-gray-700">
+                        <td className="px-2 py-2 text-gray-700">
                           {row.transferedBy?.name || "—"}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700">
+                          {row.approvedBy?.name || "—"}
                         </td>
                       </tr>
                     ))}
@@ -476,7 +499,7 @@ function TransferHistoryTable() {
       {/* 🔹 Modal */}
       {modalOpen && selectedMachine && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-96 relative">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-98 relative">
             <h3 className="text-xl font-bold mb-4 text-center">
               Machine Details
             </h3>
@@ -514,8 +537,24 @@ function TransferHistoryTable() {
               {selectedMachine.originFactory?.factoryName || "—"}
             </p>
             <p>
-              <strong>Origin Factory Location :</strong>{" "}
+              <strong>Machine Origin Factory Location :</strong>{" "}
               {selectedMachine.originFactory?.factoryLocation || "—"}
+            </p>
+            <p>
+              <strong>Machine Current Factory :</strong>{" "}
+              {selectedMachine.factoryId?.factoryName || "—"}
+            </p>
+            <p>
+              <strong>Machine Current Factory Location :</strong>{" "}
+              {selectedMachine.factoryId?.factoryLocation || "—"}
+            </p>
+            <p>
+              <strong>Machine Status In Current Factory :</strong>{" "}
+              {selectedMachine.status || "—"}
+            </p>
+            <p>
+              <strong>Machine Created By :</strong>{" "}
+              {selectedMachine.createdBy?.name || "—"}
             </p>
             <button
               onClick={closeModal}

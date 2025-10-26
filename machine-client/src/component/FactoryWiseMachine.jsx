@@ -91,173 +91,22 @@ function FactoryMachineList() {
     return result;
   }, [machinesByFactory, selectedFactory, search]);
 
-  // Export to Excel
-  // const handleExportExcel = () => {
-  //   const rows = [];
-  //   Object.entries(filteredMachinesByFactory).forEach(
-  //     ([factoryKey, factoryMachines]) => {
-  //       const [factoryName, factoryLocation] = factoryKey.split(" | ");
-  //       factoryMachines.forEach((machine) => {
-  //         rows.push({
-  //           FactoryName: factoryName,
-  //           FactoryLocation: factoryLocation,
-  //           MachineCode: machine.machineCode,
-  //           MachineCategory: machine.machineCategory,
-  //           MachineGroup: machine.machineGroup,
-  //           MachineStatus: machine.status,
-  //           MachineNumber: machine.machineNumber,
-  //           PurchaseDate: machine.purchaseDate
-  //             ? new Date(machine.purchaseDate)
-  //             : "—",
-
-  //           CreatedBy: machine.createdBy?.name || "—",
-  //           CreatedDate: machine.createdAt ? new Date(machine.createdAt) : "—",
-  //           UpdatedDate: machine.updatedAt ? new Date(machine.updatedAt) : "—",
-  //         });
-  //       });
-  //     }
-  //   );
-  //   // const worksheet = XLSX.utils.json_to_sheet(rows);
-  //   const worksheet = XLSX.utils.json_to_sheet(rows, {
-  //     dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
-  //   });
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Factory Machines");
-  //   XLSX.writeFile(workbook, "FactoryMachineList.xlsx");
-  // };
-
-  // const handleExportExcel = () => {
-  //   const rows = [];
-
-  //   // Prepare data
-  //   Object.entries(filteredMachinesByFactory).forEach(
-  //     ([factoryKey, factoryMachines]) => {
-  //       const [factoryName, factoryLocation] = factoryKey.split(" | ");
-  //       factoryMachines.forEach((machine) => {
-  //         rows.push({
-  //           FactoryName: factoryName,
-  //           FactoryLocation: factoryLocation,
-  //           MachineCode: machine.machineCode,
-  //           MachineCategory: machine.machineCategory,
-  //           MachineGroup: machine.machineGroup,
-  //           MachineStatus: machine.status,
-  //           MachineNumber: machine.machineNumber,
-  //           PurchaseDate: machine.purchaseDate
-  //             ? new Date(machine.purchaseDate)
-  //             : null,
-  //           CreatedBy: machine.createdBy?.name || "—",
-  //           CreatedDate: machine.createdAt ? new Date(machine.createdAt) : null,
-  //           UpdatedDate: machine.updatedAt ? new Date(machine.updatedAt) : null,
-  //         });
-  //       });
-  //     }
-  //   );
-
-  //   // Start with a blank sheet
-  //   const worksheet = XLSX.utils.aoa_to_sheet([]);
-
-  //   // Add title and export date
-  //   XLSX.utils.sheet_add_aoa(worksheet, [["🏭 Factory Machine List Report"]], {
-  //     origin: "A1",
-  //   });
-  //   XLSX.utils.sheet_add_aoa(
-  //     worksheet,
-  //     [
-  //       [
-  //         `Exported on: ${new Date().toLocaleDateString("en-GB", {
-  //           day: "2-digit",
-  //           month: "short",
-  //           year: "numeric",
-  //         })}`,
-  //       ],
-  //     ],
-  //     { origin: "A2" }
-  //   );
-  //   XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" }); // empty row
-
-  //   // Add data + headers starting at A4
-  //   XLSX.utils.sheet_add_json(worksheet, rows, {
-  //     origin: "A4",
-  //     skipHeader: false,
-  //   });
-
-  //   // Auto column width including dates
-  //   const keys = Object.keys(rows[0] || {});
-  //   const objectMaxLength = keys.map((key) => {
-  //     const maxLength = Math.max(
-  //       key.length, // header
-  //       ...rows.map((row) => {
-  //         const cellValue = row[key];
-  //         if (cellValue instanceof Date) {
-  //           return cellValue.toLocaleDateString("en-GB", {
-  //             day: "2-digit",
-  //             month: "short",
-  //             year: "numeric",
-  //           }).length;
-  //         } else if (cellValue) {
-  //           return cellValue.toString().length;
-  //         } else {
-  //           return 1; // for empty cells
-  //         }
-  //       })
-  //     );
-  //     return { wch: maxLength + 3 }; // add padding
-  //   });
-  //   worksheet["!cols"] = objectMaxLength;
-
-  //   // Merge and style title row
-  //   worksheet["!merges"] = [
-  //     { s: { r: 0, c: 0 }, e: { r: 0, c: keys.length - 1 } }, // title
-  //     { s: { r: 1, c: 0 }, e: { r: 1, c: keys.length - 1 } }, // export date
-  //   ];
-
-  //   worksheet["A1"].s = {
-  //     font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
-  //     fill: { fgColor: { rgb: "4472C4" } },
-  //     alignment: { horizontal: "center", vertical: "center" },
-  //   };
-
-  //   worksheet["A2"].s = {
-  //     font: { italic: true, color: { rgb: "555555" } },
-  //     alignment: { horizontal: "center" },
-  //   };
-
-  //   // Style header row (row 4)
-  //   const headerRow = 3; // zero-indexed
-  //   for (let C = 0; C < keys.length; C++) {
-  //     const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: C })];
-  //     if (cell) {
-  //       cell.s = {
-  //         font: { bold: true, color: { rgb: "FFFFFF" } },
-  //         fill: { fgColor: { rgb: "4F81BD" } },
-  //         alignment: { horizontal: "center", vertical: "center" },
-  //         border: {
-  //           top: { style: "thin", color: { rgb: "AAAAAA" } },
-  //           bottom: { style: "thin", color: { rgb: "AAAAAA" } },
-  //           left: { style: "thin", color: { rgb: "AAAAAA" } },
-  //           right: { style: "thin", color: { rgb: "AAAAAA" } },
-  //         },
-  //       };
-  //     }
-  //   }
-
-  //   // Freeze header row (optional)
-  //   worksheet["!freeze"] = { xSplit: 0, ySplit: 4 };
-
-  //   // Export workbook
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Factory Machines");
-  //   XLSX.writeFile(workbook, "FactoryMachineList.xlsx", { cellStyles: true });
-  // };
-
   const handleExportExcel = () => {
     const rows = [];
 
     // Prepare data
-    Object.entries(filteredMachinesByFactory).forEach(
-      ([factoryKey, factoryMachines]) => {
+    Object.entries(filteredMachinesByFactory)
+      // ✅ First sort factories alphabetically
+      .sort(([factoryA], [factoryB]) => factoryA.localeCompare(factoryB))
+      .forEach(([factoryKey, factoryMachines]) => {
         const [factoryName, factoryLocation] = factoryKey.split(" | ");
-        factoryMachines.forEach((machine) => {
+        // ✅ Then sort each factory's machines by machineNumber
+        const sortedMachines = [...factoryMachines].sort((a, b) =>
+          a.machineNumber.localeCompare(b.machineNumber, undefined, {
+            numeric: true,
+          })
+        );
+        sortedMachines.forEach((machine) => {
           rows.push({
             FactoryName: factoryName,
             FactoryLocation: factoryLocation,
@@ -278,8 +127,7 @@ function FactoryMachineList() {
               : null,
           });
         });
-      }
-    );
+      });
 
     // Create blank worksheet
     const worksheet = XLSX.utils.aoa_to_sheet([]);
@@ -610,16 +458,6 @@ function FactoryMachineList() {
                                   }
                                 )}
                               </td>
-                              {/* <td className="px-4 py-3">
-                                {new Date(machine.updatedAt).toLocaleString(
-                                  "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  }
-                                )}
-                              </td> */}
                             </tr>
                           ))}
                         </tbody>

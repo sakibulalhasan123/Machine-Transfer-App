@@ -35,6 +35,13 @@ const transferSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedDate: {
+      type: Date,
+    },
     status: {
       type: String,
       enum: [

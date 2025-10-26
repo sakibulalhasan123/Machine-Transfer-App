@@ -40,7 +40,7 @@ function MachineHistoryPage() {
     { label: "Category", key: "machineCategory" },
     { label: "Current Status", key: "currentStatus" },
     { label: "Purchase Date", key: "purchaseDate" },
-    { label: "Creation/Trasnfer Date", key: "lastDate" },
+    { label: "Creation/Transfer/Return Date", key: "lastDate" },
     { label: "Transfer ID", key: "transferId" },
     { label: "Remarks", key: "remarks" },
   ];
@@ -303,12 +303,12 @@ function MachineHistoryPage() {
           ) : (
             <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
+                <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold tracking-wide">
                   <tr>
                     {columns.map((col) => (
                       <th
                         key={col.key}
-                        className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer select-none"
+                        className="px-4 py-3 text-center text-sm font-bold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
                         onClick={() => handleSort(col.key)}
                       >
                         <div className="flex items-center">
@@ -324,7 +324,7 @@ function MachineHistoryPage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-blue divide-y divide-gray-200 text-center">
                   {sortedMachines.map((m) => (
                     <tr
                       key={m._id}
@@ -336,88 +336,51 @@ function MachineHistoryPage() {
                       >
                         {m.machineCode}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-2 py-2 text-sm text-gray-700">
                         {m.machineCategory}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-2 py-2 text-sm text-gray-700">
                         {m.currentStatus}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-2 py-2 text-sm text-gray-500">
                         {m.purchaseDate
                           ? new Date(m.purchaseDate).toLocaleDateString(
                               "en-GB",
                               {
                                 day: "2-digit",
-                                month: "2-digit",
+                                month: "short", // ✅ e.g. Oct, Nov, Dec
                                 year: "numeric",
+                                timeZone: "UTC", // ✅ prevents 6-hour shift issues
                               }
                             )
                           : "-"}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(m.lastDate).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}
+
+                      <td className="px-2 py-2 text-sm text-gray-500">
+                        {m.lastDate
+                          ? new Date(m.lastDate).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short", // ✅ short month name like "Oct"
+                              year: "numeric",
+                              timeZone: "UTC", // ✅ timezone-safe
+                            })
+                          : "-"}
                       </td>
 
-                      {/* <td
-                        className={`px-6 py-4 text-sm font-medium 
-                          ${
-                            m.lastHistory.type.includes("Return")
-                              ? "text-gray-400 cursor-not-allowed"
-                              : "text-indigo-600 cursor-pointer hover:underline"
-                          }`}
-                        onClick={() => {
-                          if (!m.lastHistory.type.includes("Return")) {
-                            handleTransferClick(
-                              m,
-                              selectedFactory.label.split(" (")[0],
-                              m.transferId
-                            );
-                          }
-                        }}
-                      >
-                        {m.lastHistory.type.includes("Return")
-                          ? "-"
-                          : m.transferId || "-"}
-                      </td> */}
                       <td
-                        className={`px-6 py-4 text-sm font-medium 
-    ${
-      m.lastHistory.type.includes("Return") &&
-      !["Return Initiated", "Return In-Progress"].includes(m.lastHistory.type)
-        ? "text-gray-400 cursor-not-allowed"
-        : "text-indigo-600 cursor-pointer hover:underline"
-    }`}
-                        onClick={() => {
-                          if (
-                            !(
-                              m.lastHistory.type.includes("Return") &&
-                              ![
-                                "Return Initiated",
-                                "Return In-Progress",
-                              ].includes(m.lastHistory.type)
-                            )
-                          ) {
-                            handleTransferClick(
-                              m,
-                              selectedFactory.label.split(" (")[0],
-                              m.transferId
-                            );
-                          }
-                        }}
+                        className="px-2 py-2 text-sm font-medium text-indigo-600 cursor-pointer hover:underline"
+                        onClick={() =>
+                          handleTransferClick(
+                            m,
+                            selectedFactory.label.split(" (")[0],
+                            m.transferId
+                          )
+                        }
                       >
-                        {m.lastHistory.type.includes("Return") &&
-                        !["Return Initiated", "Return In-Progress"].includes(
-                          m.lastHistory.type
-                        )
-                          ? "-"
-                          : m.transferId || "-"}
+                        {m.transferId || "-"}
                       </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-2 py-2 text-sm text-gray-700">
                         {m.remarks}
                       </td>
                     </tr>
@@ -443,10 +406,11 @@ function MachineHistoryPage() {
               </h3>
               <div className="space-y-3 text-gray-700 text-sm">
                 <p>
-                  <strong>Machine Code:</strong> {selectedMachine.machineCode}
+                  <strong>Machine Code: </strong>
+                  {selectedMachine.machineCode}
                 </p>
                 <p>
-                  <strong>Machine Category:</strong>{" "}
+                  <strong>Machine Category: </strong>
                   {selectedMachine.machineCategory}
                 </p>
                 <p>
@@ -465,6 +429,24 @@ function MachineHistoryPage() {
                 <p>
                   <strong>Machine Number:</strong>{" "}
                   {selectedMachine.machineNumber}
+                </p>
+                <p>
+                  <strong>Machine Created By:</strong>{" "}
+                  {selectedMachine.createdBy?.name}
+                </p>
+                <p>
+                  <strong>Machine Created Date:</strong>{" "}
+                  {selectedMachine.createdAt
+                    ? new Date(selectedMachine.createdAt).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          timeZone: "UTC", // ✅ ensures consistent date
+                        }
+                      )
+                    : "-"}
                 </p>
               </div>
             </div>
@@ -491,23 +473,10 @@ function MachineHistoryPage() {
                   <strong>Type:</strong> {selectedTransfer[0].type}
                 </p>
                 <p>
-                  <strong>Status:</strong> {selectedTransfer[0].status}
+                  <strong>Transfer Id :</strong>{" "}
+                  {selectedTransfer[0].transferId}
                 </p>
 
-                {/* {selectedTransfer[0].type.includes("Transfer") && (
-                  <>
-                    <p>
-                      <strong>From Factory:</strong>{" "}
-                      {selectedTransfer.find((e) => e.type === "Transfer Out")
-                        ?.factory || "-"}
-                    </p>
-                    <p>
-                      <strong>To Factory:</strong>{" "}
-                      {selectedTransfer.find((e) => e.type === "Transfer In")
-                        ?.factory || "-"}
-                    </p>
-                  </>
-                )} */}
                 {selectedTransfer[0].type.includes("Transfer") && (
                   <>
                     <p>
@@ -525,22 +494,6 @@ function MachineHistoryPage() {
                   </>
                 )}
 
-                {/* {selectedTransfer[0].type.includes("Return") && (
-                  <>
-                    <p>
-                      <strong>From Factory:</strong>{" "}
-                      {selectedTransfer.find(
-                        (e) => e.type === "Return Dispatched"
-                      )?.factory || "-"}
-                    </p>
-                    <p>
-                      <strong>From Factory:</strong>{" "}
-                      {selectedTransfer.find(
-                        (e) => e.type === "Return Received"
-                      )?.factory || "-"}
-                    </p>
-                  </>
-                )} */}
                 {selectedTransfer[0].type.includes("Return") && (
                   <>
                     <p>
@@ -563,20 +516,41 @@ function MachineHistoryPage() {
                 )}
 
                 <p>
-                  <strong>Transfer Date:</strong>{" "}
-                  {new Date(selectedTransfer[0].date).toLocaleString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: true, // চাইলে true দিলে 12-hour format হবে (AM/PM সহ)
-                  })}
+                  <strong>Status:</strong> {selectedTransfer[0].status}
+                </p>
+                <p>
+                  <strong>Remarks:</strong> {selectedTransfer[0].remarks}
+                </p>
+                <p>
+                  <strong>Transfer/Return Initiation Date:</strong>{" "}
+                  {selectedTransfer[0].date
+                    ? new Date(selectedTransfer[0].date).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "short", // e.g. Oct
+                          year: "numeric",
+                          timeZone: "UTC", // ensures consistent date
+                        }
+                      )
+                    : "-"}
+                </p>
+                <p>
+                  <strong>Transfer/Return Received Date:</strong>{" "}
+                  {selectedTransfer[0].approvedDate
+                    ? new Date(
+                        selectedTransfer[0].approvedDate
+                      ).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short", // e.g. Oct
+                        year: "numeric",
+                        timeZone: "UTC", // ensures consistent date
+                      })
+                    : "-"}
                 </p>
 
                 <p>
-                  <strong>Transferred By:</strong>{" "}
+                  <strong>Transferred/Returned By:</strong>{" "}
                   {selectedTransfer[0].transferedBy}
                 </p>
               </div>

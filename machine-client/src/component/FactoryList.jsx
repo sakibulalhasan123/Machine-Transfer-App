@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import Navbar from "./Navbar";
 
 function FactoryList() {
@@ -85,30 +85,154 @@ function FactoryList() {
   };
 
   /** 🔹 Export Excel */
+  // const handleExportExcel = () => {
+  //   const rows = filteredRows.map((f) => ({
+  //     FactoryName: f.factoryName,
+  //     FactoryLocation: f.factoryLocation,
+  //     CreatedBy: f.createdBy?.name || "—",
+  //     Role: f.createdBy?.role || "—",
+  //     // CreatedDate: f.createdAt
+  //     //   ? new Date(f.createdAt).toLocaleDateString()
+  //     //   : "—",
+  //     CreatedDate: f.createdAt ? new Date(f.createdAt) : "—",
+  //     // UpdatedDate: f.updatedAt
+  //     //   ? new Date(f.updatedAt).toLocaleDateString()
+  //     //   : "—",
+  //     UpdatedDate: f.updatedAt ? new Date(f.updatedAt) : "—",
+  //     FactoryNumber: f.factoryNumber,
+  //   }));
+
+  //   // const worksheet = XLSX.utils.json_to_sheet(rows);
+  //   const worksheet = XLSX.utils.json_to_sheet(rows, {
+  //     dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
+  //   });
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Factories");
+  //   XLSX.writeFile(workbook, "Factories.xlsx");
+  // };
   const handleExportExcel = () => {
-    const rows = filteredRows.map((f) => ({
+    if (!filteredRows || filteredRows.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    // ✅ Sort first by factoryName, then by factoryNumber
+    const sortedRows = [...filteredRows].sort((a, b) => {
+      const nameCompare = a.factoryName.localeCompare(b.factoryName);
+      if (nameCompare !== 0) return nameCompare;
+      // secondary sort by factoryNumber (numeric if possible)
+      const numA = parseInt(a.factoryNumber) || 0;
+      const numB = parseInt(b.factoryNumber) || 0;
+      return numA - numB;
+    });
+
+    // Prepare rows
+    const rows = sortedRows.map((f) => ({
       FactoryName: f.factoryName,
       FactoryLocation: f.factoryLocation,
+      FactoryNumber: f.factoryNumber,
       CreatedBy: f.createdBy?.name || "—",
       Role: f.createdBy?.role || "—",
-      // CreatedDate: f.createdAt
-      //   ? new Date(f.createdAt).toLocaleDateString()
-      //   : "—",
-      CreatedDate: f.createdAt ? new Date(f.createdAt) : "—",
-      // UpdatedDate: f.updatedAt
-      //   ? new Date(f.updatedAt).toLocaleDateString()
-      //   : "—",
-      UpdatedDate: f.updatedAt ? new Date(f.updatedAt) : "—",
-      FactoryNumber: f.factoryNumber,
+      CreatedDate: f.createdAt
+        ? { t: "d", v: new Date(f.createdAt), z: "dd-mmm-yyyy" }
+        : null,
+      UpdatedDate: f.updatedAt
+        ? { t: "d", v: new Date(f.updatedAt), z: "dd-mmm-yyyy" }
+        : null,
     }));
 
-    // const worksheet = XLSX.utils.json_to_sheet(rows);
-    const worksheet = XLSX.utils.json_to_sheet(rows, {
-      dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
+    // Create blank worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+    // Add title & export date
+    XLSX.utils.sheet_add_aoa(worksheet, [["🏭 Factory Master List Report"]], {
+      origin: "A1",
     });
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [
+          `Exported on: ${new Date().toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}`,
+        ],
+      ],
+      { origin: "A2" }
+    );
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" });
+
+    // Add data + headers starting at A4
+    XLSX.utils.sheet_add_json(worksheet, rows, {
+      origin: "A4",
+      skipHeader: false,
+    });
+
+    // Auto column width
+    const keys = Object.keys(rows[0]);
+    worksheet["!cols"] = keys.map((key) => {
+      const maxLength = Math.max(
+        key.length,
+        ...rows.map((r) => {
+          const cell = r[key];
+          if (!cell) return 1;
+          if (cell.t === "d" && cell.v instanceof Date) {
+            return cell.v.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }).length;
+          }
+          return cell.toString().length;
+        })
+      );
+      return { wch: maxLength + 3 };
+    });
+
+    // Merge and style title
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: keys.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: keys.length - 1 } },
+    ];
+
+    worksheet["A1"].s = {
+      font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "4472C4" } },
+      alignment: { horizontal: "center", vertical: "center" },
+    };
+
+    worksheet["A2"].s = {
+      font: { italic: true, color: { rgb: "555555" } },
+      alignment: { horizontal: "center" },
+    };
+
+    // Style header row
+    const headerRow = 3;
+    for (let C = 0; C < keys.length; C++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: C })];
+      if (cell) {
+        cell.s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "4F81BD" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "AAAAAA" } },
+            bottom: { style: "thin", color: { rgb: "AAAAAA" } },
+            left: { style: "thin", color: { rgb: "AAAAAA" } },
+            right: { style: "thin", color: { rgb: "AAAAAA" } },
+          },
+        };
+      }
+    }
+
+    // Freeze header
+    worksheet["!freeze"] = { xSplit: 0, ySplit: 4 };
+
+    // Export workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Factories");
-    XLSX.writeFile(workbook, "Factories.xlsx");
+    XLSX.writeFile(workbook, "FactoryMasterList.xlsx", { cellStyles: true });
   };
 
   return (

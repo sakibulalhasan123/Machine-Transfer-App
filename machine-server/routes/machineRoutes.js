@@ -7,6 +7,7 @@ const {
   bulkAddMachines,
   getMachinesByFactory,
   checkDuplicates,
+  getAllMachineStatus,
 } = require("../controllers/machineController");
 
 // ==========================
@@ -28,5 +29,7 @@ router.post("/check-duplicates", protect, checkDuplicates);
 // ➤ Get all machines grouped by factory
 // GET /api/machines
 router.get("/", protect, getMachinesByFactory);
+
+router.get("/machine-status", getAllMachineStatus);
 // Export the router so it can be used in app.js
 module.exports = router;

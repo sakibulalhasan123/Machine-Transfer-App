@@ -217,9 +217,73 @@ const getMachinesByFactory = async (req, res) => {
   }
 };
 
+// controllers/machineStatusController.js
+
+const Transfer = require("../models/Transfer");
+const Maintenance = require("../models/Maintenance");
+const MachineIdle = require("../models/MachineIdle");
+
+const getAllMachineStatus = async (req, res) => {
+  try {
+    // Step 1: সব মেশিন নিয়ে আসা
+    const machines = await Machine.find()
+      .populate("factoryId", "factoryName")
+      .populate("originFactory", "factoryName")
+      .populate("createdBy", "name email")
+      .lean(); // faster query result
+
+    // Step 2: সব relation একবারে নিয়ে আসা (performance-friendly)
+    const [transfers, maintenances, idles] = await Promise.all([
+      Transfer.find().select("machineId transferId status").lean(),
+      Maintenance.find().select("machineId maintenanceId status").lean(),
+      MachineIdle.find().select("machineId idleId status").lean(),
+    ]);
+
+    // Step 3: প্রতিটা মেশিনে related IDs attach করা
+    const machinesWithRelations = machines.map((machine) => {
+      const relatedTransfer = transfers.find(
+        (t) => t.machineId.toString() === machine._id.toString()
+      );
+      const relatedMaintenance = maintenances.find(
+        (m) => m.machineId.toString() === machine._id.toString()
+      );
+      const relatedIdle = idles.find(
+        (i) => i.machineId.toString() === machine._id.toString()
+      );
+
+      return {
+        ...machine,
+        transferId: relatedTransfer ? relatedTransfer.transferId : null,
+        transferStatus: relatedTransfer ? relatedTransfer.status : null,
+
+        maintenanceId: relatedMaintenance
+          ? relatedMaintenance.maintenanceId
+          : null,
+        maintenanceStatus: relatedMaintenance
+          ? relatedMaintenance.status
+          : null,
+
+        idleId: relatedIdle ? relatedIdle.idleId : null,
+        idleStatus: relatedIdle ? relatedIdle.status : null,
+      };
+    });
+
+    // Step 4: Final Response
+    res.status(200).json({
+      success: true,
+      totalMachines: machinesWithRelations.length,
+      machines: machinesWithRelations,
+    });
+  } catch (err) {
+    console.error("🔥 getAllMachineStatus error:", err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 module.exports = {
   addMachine,
   bulkAddMachines,
   checkDuplicates,
   getMachinesByFactory,
+  getAllMachineStatus,
 };

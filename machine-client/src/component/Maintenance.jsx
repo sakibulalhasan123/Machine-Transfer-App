@@ -284,7 +284,9 @@ function Maintenance() {
               />
             </div>
             <div>
-              <label className="block mb-1">Maintenance Date & Time :</label>
+              <label className="block mb-1">
+                Maintenance Start Date & Time :
+              </label>
               <DatePicker
                 selected={maintenanceDate}
                 onChange={(date) => setMaintenanceDate(date)}

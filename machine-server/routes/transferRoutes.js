@@ -37,7 +37,7 @@ router.post(
 //Get All Transfers
 router.get("/", protect, transferController.getTransfers);
 //Get Machine History
-router.get("/machine/history", protect, transferController.getMachineHistory);
+router.get("/machine/history", transferController.getMachineHistory);
 //Get Machine Summary
 router.get(
   "/reports/origin-factory-summary",

@@ -176,7 +176,7 @@ exports.updateMaintenanceStatus = async (req, res) => {
     await maintenance.save();
 
     // 6️⃣ যদি Completed হয় → machine status আবার In-House করে দাও
-    if (newStatus === "Completed") {
+    if (newStatus === "Maintenance Completed") {
       await Machine.findByIdAndUpdate(maintenance.machineId, {
         status: "In-House",
       });

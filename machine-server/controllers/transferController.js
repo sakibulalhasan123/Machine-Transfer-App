@@ -120,6 +120,8 @@ exports.receiveTransfer = async (req, res) => {
       return res.status(403).json({ error: "Not authorized" });
     }
     transfer.status = "Transferred";
+    transfer.approvedBy = req.user._id; // যে ইউজার confirm করছে
+    transfer.approvedDate = new Date(); // <-- local approve time
     await transfer.save();
 
     // Move machine to new factory
@@ -331,14 +333,17 @@ exports.receiveReturn = async (req, res) => {
 
     // ✅ update transfer
     transfer.status = "Returned";
+    transfer.approvedBy = req.user._id; // যে ইউজার confirm করছে
+    transfer.approvedDate = new Date(); // <-- local approve time
     transfer.remarks = "Return received at origin factory";
-    transfer.receivedBy = req.user._id;
-    transfer.receivedDate = new Date();
+    // transfer.receivedBy = req.user._id;
+    // transfer.receivedDate = new Date();
     await transfer.save();
 
     // ✅ update machine
     machine.factoryId = transfer.toFactory; // origin factory
     machine.status = "In-House";
+
     await machine.save();
 
     return res.status(200).json({
@@ -362,16 +367,27 @@ exports.getTransfers = async (req, res) => {
       .populate({
         path: "machineId",
         select:
-          "machineCode machineCategory machineGroup originFactory machineNumber purchaseDate",
-        populate: {
-          path: "originFactory",
-          select: "factoryName factoryLocation",
-        },
+          "machineCode machineCategory machineGroup originFactory factoryId machineNumber purchaseDate status createdBy",
+        populate: [
+          {
+            path: "originFactory",
+            select: "factoryName factoryLocation",
+          },
+          {
+            path: "factoryId",
+            select: "factoryName factoryLocation",
+          },
+          {
+            path: "createdBy",
+            select: "name email",
+          },
+        ],
       })
       .populate("fromFactory", "factoryName factoryLocation")
       .populate("toFactory", "factoryName factoryLocation")
       .populate("transferedBy", "name email")
-      .sort({ transferDate: -1 })
+      .populate("approvedBy", "name email")
+      .sort({ transferId: -1 })
       .lean();
 
     return res.json({ transfers });
@@ -381,169 +397,22 @@ exports.getTransfers = async (req, res) => {
   }
 };
 
-/**
- * Get full machine history with factory-aware + return-aware status
- * @route GET /api/transfers/machine/history
- */
-// exports.getMachineHistory = async (req, res) => {
-//   try {
-//     // 1️⃣ সব মেশিন বের করো
-//     const machines = await Machine.find()
-//       .populate("factoryId", "factoryName factoryLocation")
-//       .populate("originFactory", "factoryName factoryLocation")
-//       .lean();
-
-//     // 2️⃣ সব ট্রান্সফার বের করো (date ASC)
-//     const allTransfers = await Transfer.find()
-//       .populate("fromFactory", "factoryName factoryLocation")
-//       .populate("toFactory", "factoryName factoryLocation")
-//       .populate("transferedBy", "name email")
-//       .sort({ transferDate: 1 })
-//       .lean();
-
-//     // 3️⃣ প্রতিটা মেশিনের history বানাও
-//     const machinesWithHistory = machines.map((machine) => {
-//       const transfers = allTransfers.filter(
-//         (t) => t.machineId.toString() === machine._id.toString()
-//       );
-
-//       const factoryHistoryMap = {};
-//       const latestStatusMap = {};
-
-//       // ➤ Origin Entry
-//       const origin = machine.originFactory || {
-//         _id: machine._id,
-//         factoryName: "-",
-//         factoryLocation: "-",
-//       };
-
-//       factoryHistoryMap[origin._id] = [
-//         {
-//           type: "Creation",
-//           status: "In-House",
-//           factory: origin.factoryName,
-//           location: origin.factoryLocation,
-//           transferedBy: "-",
-//           date: machine.createdAt,
-//           remarks: "Machine created",
-//           transferId: null,
-//           _id: null,
-//         },
-//       ];
-//       latestStatusMap[origin._id] = "In-House";
-
-//       // ➤ Process Transfers
-//       transfers.forEach((t) => {
-//         const fromId = t.fromFactory?._id?.toString();
-//         const toId = t.toFactory?._id?.toString();
-
-//         if (!factoryHistoryMap[fromId]) factoryHistoryMap[fromId] = [];
-//         if (!factoryHistoryMap[toId]) factoryHistoryMap[toId] = [];
-
-//         // 🔹 যদি return transfer হয় → Return Dispatched + Return Received add করো
-//         if (t.status === "Returned") {
-//           factoryHistoryMap[fromId].push({
-//             type: "Return Dispatched",
-//             status: "In Return Transit",
-//             factory: t.fromFactory?.factoryName || "-",
-//             location: t.fromFactory?.factoryLocation || "-",
-//             transferedBy: t.transferedBy?.name || "-",
-//             date: t.updatedAt,
-//             remarks: "Machine returned back to origin",
-//             transferId: t.transferId || null,
-//             _id: t._id,
-//           });
-//           latestStatusMap[fromId] = "In Return Transit";
-
-//           factoryHistoryMap[toId].push({
-//             type: "Return Received",
-//             status: "In-House",
-//             factory: t.toFactory?.factoryName || "-",
-//             location: t.toFactory?.factoryLocation || "-",
-//             transferedBy: t.transferedBy?.name || "-",
-//             date: t.updatedAt,
-//             remarks: "Return received",
-//             transferId: t.transferId || null,
-//             _id: t._id,
-//           });
-//           latestStatusMap[toId] = "In-House";
-//         } else {
-//           // 🔹 Normal Transfer হলে Transfer Out + Transfer In add করো
-//           factoryHistoryMap[fromId].push({
-//             type: "Transfer Out",
-//             status: "Transferred",
-//             factory: t.fromFactory?.factoryName || "-",
-//             location: t.fromFactory?.factoryLocation || "-",
-//             transferedBy: t.transferedBy?.name || "-",
-//             date: t.transferDate,
-//             remarks: t.remarks || "",
-//             transferId: t.transferId || null,
-//             _id: t._id,
-//           });
-//           latestStatusMap[fromId] = "Transferred";
-
-//           factoryHistoryMap[toId].push({
-//             type: "Transfer In",
-//             status: "Borrowed",
-//             factory: t.toFactory?.factoryName || "-",
-//             location: t.toFactory?.factoryLocation || "-",
-//             transferedBy: t.transferedBy?.name || "-",
-//             date: t.transferDate,
-//             remarks: t.remarks || "",
-//             transferId: t.transferId || null,
-//             _id: t._id,
-//           });
-//           latestStatusMap[toId] = "Borrowed";
-//         }
-//       });
-
-//       // ➤ Final history merge + sort (with priority)
-//       const history = Object.values(factoryHistoryMap)
-//         .flat()
-//         .sort((a, b) => {
-//           const dateDiff = new Date(a.date) - new Date(b.date);
-//           if (dateDiff !== 0) return dateDiff;
-
-//           // Priority order if same date
-//           const priority = {
-//             Creation: 1,
-//             "Transfer Out": 2,
-//             "Transfer In": 3,
-//             "Return Dispatched": 4,
-//             "Return Received": 5,
-//           };
-
-//           return (priority[a.type] || 99) - (priority[b.type] || 99);
-//         });
-
-//       return {
-//         ...machine,
-//         history,
-//         factoryHistoryMap,
-//         latestStatusMap,
-//       };
-//     });
-
-//     return res.status(200).json({ machines: machinesWithHistory });
-//   } catch (err) {
-//     console.error("❌ Error fetching full machine history:", err);
-//     return res.status(500).json({ error: "Server error" });
-//   }
-// };
-
 exports.getMachineHistory = async (req, res) => {
   try {
     // 1️⃣ সব মেশিন বের করো
     const machines = await Machine.find()
       .populate("factoryId", "factoryName factoryLocation factoryNumber")
       .populate("originFactory", "factoryName factoryLocation factoryNumber")
+      .populate("createdBy", "name email")
+      .sort({ machineNumber: 1 })
       .lean();
 
     // 2️⃣ সব ট্রান্সফার বের করো (date ASC)
     const allTransfers = await Transfer.find()
-      .populate("fromFactory", "factoryName factoryLocation")
-      .populate("toFactory", "factoryName factoryLocation")
+      .populate("fromFactory", "factoryName factoryLocation factoryNumber")
+      .populate("toFactory", "factoryName factoryLocation factoryNumber")
       .populate("transferedBy", "name email")
+      .populate("approvedBy", "name email")
       .sort({ transferDate: 1 })
       .lean();
 
@@ -558,7 +427,7 @@ exports.getMachineHistory = async (req, res) => {
 
       // ➤ Origin Entry
       const origin = machine.originFactory || {
-        _id: machine._id,
+        _id: null,
         factoryName: "-",
         factoryLocation: "-",
       };
@@ -572,7 +441,7 @@ exports.getMachineHistory = async (req, res) => {
           factoryNumber: origin.factoryNumber || "-",
           transferedBy: "-",
           date: machine.createdAt,
-          remarks: "Machine created",
+          remarks: "Machine Created",
           transferId: null,
           _id: null,
         },
@@ -596,9 +465,10 @@ exports.getMachineHistory = async (req, res) => {
             location: t.fromFactory?.factoryLocation || "-",
             transferedBy: t.transferedBy?.name || "-",
             date: t.transferDate,
-            remarks: t.remarks || "",
+            remarks: "Machine Return Initiated",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[fromId] = "Return Initiated";
 
@@ -609,9 +479,10 @@ exports.getMachineHistory = async (req, res) => {
             location: t.toFactory?.factoryLocation || "-",
             transferedBy: t.transferedBy?.name || "-",
             date: t.transferDate,
-            remarks: t.remarks || "",
+            remarks: "Machine Return In-Progress",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[toId] = "Return In-Progress";
         } else if (t.status === "Returned") {
@@ -620,11 +491,12 @@ exports.getMachineHistory = async (req, res) => {
             status: "In Return Transit",
             factory: t.fromFactory?.factoryName || "-",
             location: t.fromFactory?.factoryLocation || "-",
-            transferedBy: t.transferedBy?.name || "-",
-            date: t.updatedAt,
+            transferedBy: t.approvedBy?.name || "-",
+            date: t.transferDate,
             remarks: "Machine returned back to origin",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[fromId] = "In Return Transit";
 
@@ -633,11 +505,12 @@ exports.getMachineHistory = async (req, res) => {
             status: "In-House",
             factory: t.toFactory?.factoryName || "-",
             location: t.toFactory?.factoryLocation || "-",
-            transferedBy: t.transferedBy?.name || "-",
-            date: t.updatedAt,
-            remarks: "Return received",
+            transferedBy: t.approvedBy?.name || "-",
+            date: t.transferDate,
+            remarks: "Machine Return received",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[toId] = "In-House";
         }
@@ -654,6 +527,7 @@ exports.getMachineHistory = async (req, res) => {
             remarks: t.remarks || "",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[fromId] = "Transfer Initiated";
 
@@ -664,9 +538,10 @@ exports.getMachineHistory = async (req, res) => {
             location: t.toFactory?.factoryLocation || "-",
             transferedBy: t.transferedBy?.name || "-",
             date: t.transferDate,
-            remarks: t.remarks || "",
+            remarks: "Machine Transfer In-Progress",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[toId] = "Transfer In-Progress";
         } else if (t.status === "Transferred") {
@@ -675,11 +550,12 @@ exports.getMachineHistory = async (req, res) => {
             status: "Transferred",
             factory: t.fromFactory?.factoryName || "-",
             location: t.fromFactory?.factoryLocation || "-",
-            transferedBy: t.transferedBy?.name || "-",
-            date: t.updatedAt,
-            remarks: t.remarks || "",
+            transferedBy: t.approvedBy?.name || "-",
+            date: t.transferDate,
+            remarks: "Machine Transfer completed from Origin",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[fromId] = "Transferred";
 
@@ -688,11 +564,12 @@ exports.getMachineHistory = async (req, res) => {
             status: "Borrowed",
             factory: t.toFactory?.factoryName || "-",
             location: t.toFactory?.factoryLocation || "-",
-            transferedBy: t.transferedBy?.name || "-",
-            date: t.updatedAt,
-            remarks: t.remarks || "",
+            transferedBy: t.approvedBy?.name || "-",
+            date: t.transferDate,
+            remarks: "Machine Transfer received at borrowing factory",
             id: t._id,
             transferId: t.transferId,
+            approvedDate: t.approvedDate,
           });
           latestStatusMap[toId] = "Borrowed";
         }
@@ -735,176 +612,6 @@ exports.getMachineHistory = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
-
-/**
- * Get full machine transaction history grouped by factory with counts
- * @route GET /api/transfers/reports/origin-factory-summary
- */
-// exports.getOriginFactorySummary = async (req, res) => {
-//   try {
-//     const machines = await Machine.find()
-//       .populate("factoryId", "factoryName factoryLocation")
-//       .populate("originFactory", "factoryName factoryLocation")
-//       .lean();
-
-//     const allTransfers = await Transfer.find()
-//       .populate("fromFactory", "factoryName factoryLocation")
-//       .populate("toFactory", "factoryName factoryLocation")
-//       .populate("transferedBy", "name email")
-//       .sort({ transferDate: 1 })
-//       .lean();
-
-//     // --- Collect all known factories ---
-//     const allFactories = {};
-//     machines.forEach((m) => {
-//       if (m.factoryId?._id)
-//         allFactories[m.factoryId._id.toString()] = m.factoryId;
-//       if (m.originFactory?._id)
-//         allFactories[m.originFactory._id.toString()] = m.originFactory;
-//     });
-//     allTransfers.forEach((t) => {
-//       if (t.fromFactory?._id)
-//         allFactories[t.fromFactory._id.toString()] = t.fromFactory;
-//       if (t.toFactory?._id)
-//         allFactories[t.toFactory._id.toString()] = t.toFactory;
-//     });
-
-//     // --- Factory map store ---
-//     const factoryMap = {};
-//     const ensureFactory = (factory) => {
-//       if (!factoryMap[factory._id]) {
-//         factoryMap[factory._id] = {
-//           factoryId: factory._id,
-//           factoryName: factory.factoryName || "Unknown",
-//           factoryLocation: factory.factoryLocation || "-",
-//           totalCreated: 0,
-//           counts: {
-//             "In-House": 0,
-//             Transferred: 0,
-//             Borrowed: 0,
-//             "In Return Transit": 0,
-//           },
-//           machines: [],
-//         };
-//       }
-//       return factoryMap[factory._id];
-//     };
-
-//     const getFactoryInfo = (factory, fallbackId) => {
-//       if (factory && factory._id) return factory;
-//       if (fallbackId && allFactories[fallbackId.toString()])
-//         return allFactories[fallbackId.toString()];
-//       return {
-//         _id: fallbackId || "unknown",
-//         factoryName: "Unknown",
-//         factoryLocation: "-",
-//       };
-//     };
-
-//     // --- Process all machines ---
-//     machines.forEach((machine) => {
-//       const originFactory = machine.originFactory || machine.factoryId;
-//       const originEntry = ensureFactory(originFactory);
-//       originEntry.totalCreated += 1;
-
-//       const transfers = allTransfers.filter(
-//         (t) => t.machineId?.toString() === machine._id.toString()
-//       );
-
-//       const history = [
-//         {
-//           type: "Creation",
-//           status: "In-House",
-//           factory: originFactory,
-//           date: machine.createdAt,
-//           remarks: "Machine created at origin factory",
-//           _id: null,
-//         },
-//       ];
-
-//       const factoryStatusMap = {};
-//       factoryStatusMap[originFactory._id] = "In-House";
-
-//       transfers.forEach((t) => {
-//         const fromFactory = getFactoryInfo(t.fromFactory, t.fromFactoryId);
-//         const toFactory = getFactoryInfo(t.toFactory, t.toFactoryId);
-//         const fromId = fromFactory._id.toString();
-//         const toId = toFactory._id.toString();
-
-//         // --- Handle Returned ---
-//         if (t.status && t.status.toLowerCase() === "returned") {
-//           history.push({
-//             type: "Return Dispatched",
-//             status: "In Return Transit",
-//             factory: fromFactory,
-//             date: t.updatedAt,
-//             transferedBy: t.transferedBy?.name || "-",
-//             remarks: "Machine returned back to origin",
-//             _id: t._id,
-//           });
-//           factoryStatusMap[fromId] = "In Return Transit";
-
-//           history.push({
-//             type: "Return Received",
-//             status: "In-House",
-//             factory: toFactory,
-//             date: t.updatedAt,
-//             transferedBy: t.transferedBy?.name || "-",
-//             remarks: "Machine returned to origin factory",
-//             _id: t._id,
-//           });
-//           factoryStatusMap[toId] = "In-House";
-//         } else {
-//           // --- Normal Transfer ---
-//           history.push({
-//             type: "Transfer Out",
-//             status: "Transferred",
-//             factory: fromFactory,
-//             date: t.transferDate,
-//             transferedBy: t.transferedBy?.name || "-",
-//             remarks: t.remarks || "",
-//             _id: t._id,
-//           });
-//           factoryStatusMap[fromId] = "Transferred";
-
-//           history.push({
-//             type: "Transfer In",
-//             status: "Borrowed",
-//             factory: toFactory,
-//             date: t.transferDate,
-//             transferedBy: t.transferedBy?.name || "-",
-//             remarks: t.remarks || "",
-//             _id: t._id,
-//           });
-//           factoryStatusMap[toId] = "Borrowed";
-//         }
-//       });
-
-//       // --- Update counts per factory ---
-//       Object.keys(factoryStatusMap).forEach((fid) => {
-//         const status = factoryStatusMap[fid];
-//         const fObj = getFactoryInfo(null, fid);
-//         const fEntry = ensureFactory(fObj);
-
-//         fEntry.counts[status] = (fEntry.counts[status] || 0) + 1;
-//         fEntry.machines.push({
-//           machineId: machine._id,
-//           machineCode: machine.machineCode,
-//           machineCategory: machine.machineCategory,
-//           machineGroup: machine.machineGroup,
-//           finalStatus: status,
-//           history: history.sort((a, b) => new Date(a.date) - new Date(b.date)),
-//         });
-//       });
-//     });
-
-//     const summary = Object.values(factoryMap);
-//     return res.status(200).json({ summary });
-//   } catch (err) {
-//     console.error("❌ Error generating factory summary:", err);
-//     return res.status(500).json({ error: "Server error" });
-//   }
-// };
 
 exports.getOriginFactorySummary = async (req, res) => {
   try {
