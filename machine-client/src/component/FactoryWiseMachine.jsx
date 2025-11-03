@@ -11,6 +11,7 @@ function FactoryMachineList() {
   const [message, setMessage] = useState("");
   const [factoryPages, setFactoryPages] = useState({});
   const [itemsPerPageMap, setItemsPerPageMap] = useState({});
+  const [statusFilter, setStatusFilter] = useState("");
 
   const defaultItemsPerPage = 10;
   const itemsPerPageOptions = [5, 10, 20, 50];
@@ -66,7 +67,7 @@ function FactoryMachineList() {
         [selectedFactory]: machinesByFactory[selectedFactory] || [],
       };
 
-    if (!search) return filtered;
+    //if (!search) return filtered;
 
     const searchValue = search.toLowerCase();
     const result = {};
@@ -87,9 +88,17 @@ function FactoryMachineList() {
       });
       if (matched.length > 0) result[factoryKey] = matched;
     });
-
+    if (statusFilter) {
+      const filteredByStatus = {};
+      Object.entries(result).forEach(([factoryKey, machines]) => {
+        const matchedStatus = machines.filter((m) => m.status === statusFilter);
+        if (matchedStatus.length > 0)
+          filteredByStatus[factoryKey] = matchedStatus;
+      });
+      return filteredByStatus;
+    }
     return result;
-  }, [machinesByFactory, selectedFactory, search]);
+  }, [machinesByFactory, selectedFactory, search, statusFilter]);
 
   const handleExportExcel = () => {
     const rows = [];
@@ -235,6 +244,7 @@ function FactoryMachineList() {
   const handleResetFilters = () => {
     setSelectedFactory("");
     setSearch("");
+    setStatusFilter(""); // ✅ Add this
     setFactoryPages({});
     setItemsPerPageMap({});
   };
@@ -274,10 +284,15 @@ function FactoryMachineList() {
       <div className="mt-10 w-full max-w-7xl mx-auto px-4">
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
           {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h3 className="text-2xl font-bold text-gray-800">
+
+          <h4 className="py-2 text-2xl font-bold text-gray-800">
+            🏭 Factory-wise Machine
+          </h4>
+
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-2">
+            {/* <h4 className="text-2xl font-bold text-gray-800">
               🏭 Factory-wise Machine
-            </h3>
+            </h4> */}
             <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
               <select
                 value={selectedFactory}
@@ -292,12 +307,29 @@ function FactoryMachineList() {
                   </option>
                 ))}
               </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+              >
+                <option value="">Filter by Status</option>
+                <option value="In-House">In-House</option>
+                <option value="Transfer Initiated">Transfer Initiated</option>
+                <option value="Borrowed">Borrowed</option>
+                <option value="Return Initiated">Return Initiated</option>
+                <option value="Maintenance In-Progress">
+                  Maintenance In-Progress
+                </option>
+                <option value="Machine Idle In-Progress">
+                  Machine Idle In-Progress
+                </option>
+              </select>
 
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by code, category, or group..."
+                placeholder="Search by code, category, group, machine number "
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
               />
 
@@ -315,6 +347,54 @@ function FactoryMachineList() {
               </button>
             </div>
           </div>
+          {/* ✅ Global Summary Section */}
+          {Object.keys(filteredMachinesByFactory).length > 0 && (
+            <div className="mb-6 p-6 rounded-xl bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg">
+              <h3 className="text-xl font-bold">📊 Summary Overview</h3>
+
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-3 text-center">
+                <div className="p-4 bg-white text-gray-900 rounded-xl shadow-md">
+                  <p className="text-sm font-medium">Total Factories</p>
+                  <p className="text-2xl font-extrabold">
+                    {Object.keys(filteredMachinesByFactory).length}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-white text-gray-900 rounded-xl shadow-md">
+                  <p className="text-sm font-medium">Total Machines</p>
+                  <p className="text-2xl font-extrabold">
+                    {Object.values(filteredMachinesByFactory).reduce(
+                      (acc, arr) => acc + arr.length,
+                      0
+                    )}
+                  </p>
+                </div>
+
+                {[
+                  "In-House",
+                  "Transfer Initiated",
+                  "Borrowed",
+                  "Return Initiated",
+                  "Maintenance In-Progress",
+                  "Machine Idle In-Progress",
+                ].map((status) => (
+                  <div
+                    key={status}
+                    className="p-4 bg-white text-gray-900 rounded-xl shadow-md"
+                  >
+                    <p className="text-sm font-medium">{status}</p>
+                    <p className="text-2xl font-extrabold text-green-600">
+                      {
+                        Object.values(filteredMachinesByFactory)
+                          .flat()
+                          .filter((m) => m.status === status).length
+                      }
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           {loading ? (
@@ -355,19 +435,22 @@ function FactoryMachineList() {
                       className="overflow-x-auto rounded-xl border border-gray-200"
                     >
                       <h4 className="bg-green-100 text-green-800 font-semibold px-4 py-2 border-b">
-                        {factoryName}{" "}
-                        <span className="text-gray-600 font-normal text-sm">
+                        Factory Name :- {factoryName}{" "}
+                        <span className="text-gray-800 font-normal text-lg">
                           ({factoryLocation}) -{" "}
-                          <b>{factoryMachines.length} machines</b>
                           <b>
                             {" "}
-                            {" ("}
+                            Total machines:-{factoryMachines.length} machines
+                          </b>
+                          <b>
+                            {" "}
+                            <br /> {" ("}
                             {
                               factoryMachines.filter(
                                 (m) => m.status === "In-House"
                               ).length
                             }{" "}
-                            In-House,{" "}
+                            In-House ,{" "}
                           </b>
                           <b>
                             {
@@ -375,7 +458,7 @@ function FactoryMachineList() {
                                 (m) => m.status === "Transfer Initiated"
                               ).length
                             }{" "}
-                            Transfer Initiated,
+                            Transfer Initiated ,
                           </b>
                           <b>
                             {" "}
@@ -384,7 +467,7 @@ function FactoryMachineList() {
                                 (m) => m.status === "Borrowed"
                               ).length
                             }{" "}
-                            Borrowed,{" "}
+                            Borrowed ,{" "}
                           </b>
                           <b>
                             {
@@ -392,7 +475,23 @@ function FactoryMachineList() {
                                 (m) => m.status === "Return Initiated"
                               ).length
                             }{" "}
-                            Return Initiated {")"}
+                            Return Initiated ,{" "}
+                          </b>
+                          <b>
+                            {
+                              factoryMachines.filter(
+                                (m) => m.status === "Maintenance In-Progress"
+                              ).length
+                            }{" "}
+                            Maintenance In-Progress ,{" "}
+                          </b>
+                          <b>
+                            {
+                              factoryMachines.filter(
+                                (m) => m.status === "Machine Idle In-Progress"
+                              ).length
+                            }{" "}
+                            Machine Idle In-Progress {")"}
                           </b>
                         </span>
                       </h4>

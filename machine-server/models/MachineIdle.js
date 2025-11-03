@@ -54,8 +54,8 @@ const machineIdleSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["In-Progress", "Resolved"],
-      default: "In-Progress",
+      enum: ["Machine Idle In-Progress", "Resolved"],
+      default: "Machine Idle In-Progress",
       index: true,
     },
 

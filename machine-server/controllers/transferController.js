@@ -856,6 +856,10 @@ exports.getOriginFactorySummary = async (req, res) => {
           machineCode: machine.machineCode,
           machineCategory: machine.machineCategory,
           machineGroup: machine.machineGroup,
+          purchaseDate: machine.purchaseDate,
+          machineNumber: machine.machineNumber,
+          originFactory: machine.originFactory,
+          currentFactory: machine.factoryId,
           finalStatus: status,
           history: machineHistory,
         });

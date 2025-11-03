@@ -170,10 +170,22 @@ function SummaryReport() {
                           Machine Code
                         </th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Category
+                          Machine Category
                         </th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Group
+                          Machine Group
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Status
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Purchase Date
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Machine Number
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Origin Factory
                         </th>
                       </tr>
                     </thead>
@@ -192,6 +204,27 @@ function SummaryReport() {
                             </td>
                             <td className="px-3 py-1 text-gray-600">
                               {m.machineGroup}
+                            </td>
+                            <td className="px-3 py-1 text-gray-600">
+                              {m.finalStatus}
+                            </td>
+                            <td className="px-3 py-1 text-gray-600">
+                              {m.purchaseDate
+                                ? new Date(m.purchaseDate).toLocaleDateString(
+                                    "en-GB",
+                                    {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    }
+                                  )
+                                : "-"}
+                            </td>
+                            <td className="px-3 py-1 text-gray-600">
+                              {m.machineNumber || "-"}
+                            </td>
+                            <td className="px-3 py-1 text-gray-600">
+                              {m.originFactory?.factoryName}
                             </td>
                           </tr>
                         ))

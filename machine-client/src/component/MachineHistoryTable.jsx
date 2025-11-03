@@ -236,6 +236,7 @@ function MachineHistoryPage() {
               <label className="block text-gray-700 font-medium mb-2">
                 Select Factory
               </label>
+
               <Select
                 options={factories.map((f) => ({
                   value: f._id,

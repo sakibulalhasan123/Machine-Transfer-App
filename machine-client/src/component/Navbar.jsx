@@ -269,7 +269,7 @@ function Navbar() {
                   className="flex items-center gap-2 hover:text-indigo-300 transition duration-200"
                 >
                   <FaUserCircle className="text-2xl" />
-                  <span className="hidden md:inline text-sm font-medium">
+                  <span className="hidden md:inline text-sm font-medium font-semibold">
                     {user.name}
                   </span>
                   <span

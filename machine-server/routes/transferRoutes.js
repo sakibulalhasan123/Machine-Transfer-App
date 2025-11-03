@@ -41,7 +41,6 @@ router.get("/machine/history", transferController.getMachineHistory);
 //Get Machine Summary
 router.get(
   "/reports/origin-factory-summary",
-  protect,
   transferController.getOriginFactorySummary
 );
 module.exports = router;

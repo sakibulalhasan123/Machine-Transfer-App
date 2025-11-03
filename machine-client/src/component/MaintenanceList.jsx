@@ -152,28 +152,52 @@ function MaintenanceList() {
         );
 
   // 🔹 Export Excel
-  const handleExportExcel = () => {
-    const rows = filteredRows.map((m) => ({
-      MaintenanceID: m.maintenanceId || "—",
-      Factory: m.factoryId?.factoryName || "—",
-      MachineCode: m.machineId?.machineCode || "—",
-      MachineCategory: m.machineId?.machineCategory || "—",
-      Type: m.maintenanceType || "—",
-      Description: m.description || "—",
-      SpareParts:
-        m.spareParts && m.spareParts.length > 0 ? m.spareParts.join(", ") : "—",
-      Status: m.status || "—",
-      CreatedBy: m.createdBy?.name || "—",
-      Date: m.createdAt
-        ? { t: "d", v: new Date(m.createdAt), z: "dd-mmm-yyyy" }
-        : null,
-    }));
 
-    if (rows.length === 0) {
+  const handleExportExcel = () => {
+    if (filteredRows.length === 0) {
       Swal.fire("No Data", "No maintenance records to export.", "info");
       return;
     }
 
+    // Helper to format duration
+    const formatDuration = (start, end) => {
+      if (!start || !end) return "—";
+      const diffMs = new Date(end) - new Date(start);
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+      return `${days}d ${hours}h ${minutes}m`;
+    };
+
+    // Map rows for Excel
+    const rows = filteredRows.map((m) => ({
+      MaintenanceID: m.maintenanceId || "—",
+      FactoryName: m.factoryId?.factoryName || "—",
+      MachineCode: m.machineId?.machineCode || "—",
+      MachineCategory: m.machineId?.machineCategory || "—",
+      MaintenanceType: m.maintenanceType || "—",
+      Description: m.description || "—",
+      SpareParts: m.spareParts?.length ? m.spareParts.join(", ") : "—",
+      Status: m.status || "—",
+      MaintenanceCreationDate: m.maintenanceDate
+        ? { t: "d", v: new Date(m.createdAt), z: "dd-mmm-yyyy hh:mm AM/PM" }
+        : null,
+      CreatedBy: m.createdBy?.name || "—",
+      MaintenanceCompletedDate: m.history?.[0]?.changedAt
+        ? {
+            t: "d",
+            v: new Date(m.history[0].changedAt),
+            z: "dd-mmm-yyyy hh:mm AM/PM",
+          }
+        : null,
+      CompletedBy: m.history?.[m.history.length - 1]?.changedBy?.name || "—",
+      MaintenanceTime:
+        m.maintenanceDate && m.history?.[0]?.changedAt
+          ? formatDuration(m.maintenanceDate, m.history[0].changedAt)
+          : "—",
+    }));
+
+    // Create worksheet and add title + export date
     const worksheet = XLSX.utils.aoa_to_sheet([]);
     XLSX.utils.sheet_add_aoa(worksheet, [["🏭 Machine Maintenance History"]], {
       origin: "A1",
@@ -182,22 +206,27 @@ function MaintenanceList() {
       worksheet,
       [
         [
-          `Exported on: ${new Date().toLocaleDateString("en-GB", {
+          `Exported on: ${new Date().toLocaleString("en-GB", {
             day: "2-digit",
             month: "short",
             year: "numeric",
-            timeZone: "UTC",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
           })}`,
         ],
       ],
       { origin: "A2" }
     );
     XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" });
+
+    // Add data rows
     XLSX.utils.sheet_add_json(worksheet, rows, {
       origin: "A4",
       skipHeader: false,
     });
 
+    // Column widths
     const keys = Object.keys(rows[0] || {});
     worksheet["!cols"] = keys.map((key) => {
       const maxLength = Math.max(
@@ -208,25 +237,27 @@ function MaintenanceList() {
           return cell?.v ? cell.v.toString().length : cell.toString().length;
         })
       );
-      return { wch: maxLength + 3 };
+      return { wch: maxLength + 5 };
     });
 
+    // Merge title rows
     worksheet["!merges"] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: keys.length - 1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: keys.length - 1 } },
     ];
 
+    // Styling for title
     worksheet["A1"].s = {
       font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
       fill: { fgColor: { rgb: "2E75B6" } },
       alignment: { horizontal: "center", vertical: "center" },
     };
-
     worksheet["A2"].s = {
       font: { italic: true, color: { rgb: "555555" } },
       alignment: { horizontal: "center" },
     };
 
+    // Header styling
     const headerRow = 3;
     for (let C = 0; C < keys.length; C++) {
       const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: C })];
@@ -247,6 +278,7 @@ function MaintenanceList() {
 
     worksheet["!freeze"] = { xSplit: 0, ySplit: 4 };
 
+    // Create workbook and save
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Maintenance History");
     XLSX.writeFile(workbook, "MaintenanceHistory.xlsx", { cellStyles: true });
@@ -365,14 +397,16 @@ function MaintenanceList() {
                       <th className="px-2 py-2 border">Description</th>
                       <th className="px-2 py-2 border">Spare Parts</th>
                       <th className="px-2 py-2 border">Status</th>
-                      <th className="px-2 py-2 border">Created By</th>
+
                       <th className="px-2 py-2 border">
                         Maintenance Creation Date
                       </th>
-                      <th className="px-2 py-2 border">Completed By</th>
+                      <th className="px-2 py-2 border">Created By</th>
+
                       <th className="px-2 py-2 border">
                         Maintenance Completed Date
                       </th>
+                      <th className="px-2 py-2 border">Completed By</th>
                       <th className="px-2 py-2 border">Maintenance Time</th>
                     </tr>
                   </thead>
@@ -423,9 +457,7 @@ function MaintenanceList() {
                             </button>
                           )}
                         </td>
-                        <td className="px-2 py-2">
-                          {m.createdBy?.name || "—"}
-                        </td>
+
                         <td className="px-2 py-2">
                           {m.maintenanceDate
                             ? new Date(m.maintenanceDate).toLocaleDateString(
@@ -442,8 +474,7 @@ function MaintenanceList() {
                             : "—"}
                         </td>
                         <td className="px-2 py-2">
-                          {m.history?.[m.history.length - 1]?.changedBy?.name ||
-                            "—"}
+                          {m.createdBy?.name || "—"}
                         </td>
 
                         <td className="px-2 py-2">
@@ -457,10 +488,13 @@ function MaintenanceList() {
                                   hour: "2-digit",
                                   minute: "2-digit",
                                   hour12: true,
-                                  timeZone: "UTC",
                                 }
                               )
                             : "—"}
+                        </td>
+                        <td className="px-2 py-2">
+                          {m.history?.[m.history.length - 1]?.changedBy?.name ||
+                            "—"}
                         </td>
 
                         <td className="px-2 py-2">
@@ -558,7 +592,8 @@ function MaintenanceList() {
               {selectedMaintenance.machineId?.machineCode || "—"}
             </p>
             <p>
-              <strong>Type:</strong> {selectedMaintenance.maintenanceType}
+              <strong>Maintenance Type:</strong>{" "}
+              {selectedMaintenance.maintenanceType}
             </p>
             <p>
               <strong>Description:</strong>{" "}

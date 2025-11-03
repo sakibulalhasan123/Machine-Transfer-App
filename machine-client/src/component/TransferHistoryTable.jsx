@@ -82,14 +82,6 @@ function TransferHistoryTable() {
         row.status?.toLowerCase().includes(searchText) ||
         row.remarks?.toLowerCase().includes(searchText);
 
-      // let matchesDate = true;
-      // if (from || to) {
-      //   if (!row.transferDate) matchesDate = false;
-      //   else {
-      //     const date = new Date(row.transferDate.split("T")[0]);
-      //     matchesDate = (!from || date >= from) && (!to || date <= to);
-      //   }
-      // }
       let matchesDate = true;
 
       if (from || to) {

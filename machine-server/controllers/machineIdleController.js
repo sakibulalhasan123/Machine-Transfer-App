@@ -11,7 +11,7 @@ exports.getAvailableMachines = async (req, res) => {
 
     const maintenanceInProgress = await Maintenance.find({
       factoryId,
-      status: "In-Progress",
+      status: "Maintenance In-Progress",
     }).select("machineId");
 
     const maintenanceIds = maintenanceInProgress.map((m) =>
@@ -20,7 +20,7 @@ exports.getAvailableMachines = async (req, res) => {
 
     const idleInProgress = await MachineIdle.find({
       factoryId,
-      status: "In-Progress",
+      status: "Machine Idle In-Progress",
     }).select("machineId");
 
     const idleIds = idleInProgress.map((i) => i.machineId.toString());
@@ -46,7 +46,7 @@ exports.getInProgressIdles = async (req, res) => {
 
     const idles = await MachineIdle.find({
       factoryId,
-      status: "In-Progress",
+      status: "Machine Idle In-Progress",
     }).populate("machineId", "machineCode machineCategory");
 
     // Return in format suitable for frontend
@@ -72,7 +72,7 @@ exports.createIdle = async (req, res) => {
     // Check maintenance conflict
     const maintenance = await Maintenance.findOne({
       machineId,
-      status: "In-Progress",
+      status: "Maintenance In-Progress",
     });
     if (maintenance)
       return res.status(400).json({ error: "Machine under maintenance" });
@@ -80,7 +80,7 @@ exports.createIdle = async (req, res) => {
     // Check if already idle
     const idleExist = await MachineIdle.findOne({
       machineId,
-      status: "In-Progress",
+      status: "Machine Idle In-Progress",
     });
     if (idleExist)
       return res.status(400).json({ error: "Machine already idle" });
@@ -92,7 +92,7 @@ exports.createIdle = async (req, res) => {
       description,
       startTime,
       createdBy,
-      status: "In-Progress",
+      status: "Machine Idle In-Progress",
     });
     // ✅ Update machine status to "Machine Idle In-Progress"
     await Machine.updateOne(
@@ -149,10 +149,27 @@ exports.endIdle = async (req, res) => {
     await idle.save();
 
     // 6️⃣ যদি Completed হয় → machine status আবার In-House করে দাও
+    // if (idle.status === "Resolved") {
+    //   await Machine.findByIdAndUpdate(idle.machineId, {
+    //     status: "In-House",
+    //   });
+    // }
     if (idle.status === "Resolved") {
-      await Machine.findByIdAndUpdate(idle.machineId, {
-        status: "In-House",
-      });
+      // Step 1: Find the machine first
+      const machine = await Machine.findById(idle.machineId);
+
+      if (machine) {
+        // Step 2: Determine new status based on factory IDs
+        let updatedStatus = "In-House";
+        if (machine.originFactory.toString() !== machine.factoryId.toString()) {
+          updatedStatus = "Borrowed";
+        }
+
+        // Step 3: Update machine status
+        await Machine.findByIdAndUpdate(idle.machineId, {
+          status: updatedStatus, // set new status conditionally
+        });
+      }
     }
 
     res.status(200).json({ idle });
@@ -177,9 +194,10 @@ exports.getAllMachineIdles = async (req, res) => {
     }
 
     const idles = await MachineIdle.find(filter)
-      .populate("machineId", "machineCode machineCategory")
+      .populate("machineId", "machineCode machineCategory machineGroup")
       .populate("factoryId", "factoryName factoryLocation")
       .populate("createdBy", "name email")
+      .populate("history.changedBy", "name email")
       .sort({ startTime: -1 });
 
     const formattedIdles = idles.map((i) => ({
@@ -187,6 +205,7 @@ exports.getAllMachineIdles = async (req, res) => {
       idleId: i.idleId,
       machineCode: i.machineId.machineCode,
       machineCategory: i.machineId.machineCategory,
+      machineGroup: i.machineId.machineGroup,
       factoryName: i.factoryId.factoryName,
       factoryLocation: i.factoryId.factoryLocation,
       reason: i.reason,
@@ -196,6 +215,7 @@ exports.getAllMachineIdles = async (req, res) => {
       durationMinutes: i.durationMinutes,
       status: i.status,
       createdBy: i.createdBy.name,
+      changedBy: i.history.map((h) => h.changedBy.name),
       history: i.history,
     }));
 

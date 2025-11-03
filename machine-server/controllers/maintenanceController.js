@@ -176,11 +176,29 @@ exports.updateMaintenanceStatus = async (req, res) => {
     await maintenance.save();
 
     // 6️⃣ যদি Completed হয় → machine status আবার In-House করে দাও
+    // if (newStatus === "Maintenance Completed") {
+    //   await Machine.findByIdAndUpdate(maintenance.machineId, {
+    //     status: "In-House",
+    //   });
+    // }
     if (newStatus === "Maintenance Completed") {
-      await Machine.findByIdAndUpdate(maintenance.machineId, {
-        status: "In-House",
-      });
+      // Step 1: Find the machine first
+      const machine = await Machine.findById(maintenance.machineId);
+
+      if (machine) {
+        // Step 2: Determine new status based on factory IDs
+        let updatedStatus = "In-House";
+        if (machine.originFactory.toString() !== machine.factoryId.toString()) {
+          updatedStatus = "Borrowed";
+        }
+
+        // Step 3: Update both previousStatus and status
+        await Machine.findByIdAndUpdate(maintenance.machineId, {
+          status: updatedStatus, // set new status conditionally
+        });
+      }
     }
+
     res
       .status(200)
       .json({ message: "Status updated successfully", maintenance });
