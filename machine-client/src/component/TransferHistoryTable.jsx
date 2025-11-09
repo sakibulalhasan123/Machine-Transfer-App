@@ -269,17 +269,67 @@ function TransferHistoryTable() {
     setSelectedMachine(null);
     setModalOpen(false);
   };
-
+  // ✅ Summary Card Component
+  const StatCard = ({ title, value, color }) => (
+    <div className="flex flex-col px-2 py-2 rounded-xl shadow-md border bg-white w-full">
+      <p className="text-sm font-medium text-gray-500 px-2">{title}</p>
+      <h2 className={`text-2xl px-2 font-bold mt-1 ${color}`}>{value}</h2>
+    </div>
+  );
   return (
     <>
       <Navbar />
       <div className="mt-10 w-full max-w-7xl mx-auto px-4">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-          <h2 className="text-3xl font-bold text-center text-indigo-700 mb-8">
+          <h2 className="text-2xl font-bold text-gray-800">
             📋 Transfer History Report
           </h2>
           <div>
             {message && <p className="text-sm text-red-500">{message}</p>}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-6">
+              <StatCard
+                title="🔵 Total Transfers"
+                value={filteredRows.length}
+                color="text-blue-600"
+              />
+
+              <StatCard
+                title="🟡 Transfer In-Progress"
+                value={
+                  filteredRows.filter(
+                    (i) => i.status === "Transfer In-Progress"
+                  ).length
+                }
+                color="text-yellow-600"
+              />
+
+              <StatCard
+                title="🟢 Transferred"
+                value={
+                  filteredRows.filter((i) => i.status === "Transferred").length
+                }
+                color="text-green-600"
+              />
+
+              <StatCard
+                title="🟡 Return In-Progress"
+                value={
+                  filteredRows.filter(
+                    (i) => i.status === "Returned In-Progress"
+                  ).length
+                }
+                color="text-yellow-600"
+              />
+
+              <StatCard
+                title="🟢 Returned"
+                value={
+                  filteredRows.filter((i) => i.status === "Returned").length
+                }
+                color="text-green-600"
+              />
+            </div>
           </div>
           {/* Header + Filters */}
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 mt-4">
@@ -342,31 +392,33 @@ function TransferHistoryTable() {
                 <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold tracking-wide">
                     <tr>
+                      <th className="px-2 py-2 border">SL</th>
                       <th className="px-4 py-3 border">Transfer ID</th>
                       <th className="px-4 py-3 border">Machine Code</th>
                       <th className="px-4 py-3 border">From Factory</th>
                       <th className="px-4 py-3 border">To Factory</th>
+                      <th className="px-4 py-3 border">Current Status</th>
                       <th className="px-4 py-3 border">
                         Transfer Initiation Date
                       </th>
                       <th className="px-4 py-3 border">
-                        Transfer Received Date
-                      </th>
-
-                      <th className="px-4 py-3 border">Current Status</th>
-                      <th className="px-4 py-3 border">Remarks</th>
-                      <th className="px-4 py-3 border">
                         Transfer Initiated By
                       </th>
+                      <th className="px-4 py-3 border">
+                        Transfer Received Date
+                      </th>
                       <th className="px-4 py-3 border">Transfer Received By</th>
+
+                      <th className="px-4 py-3 border">Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {paginatedRows.map((row) => (
+                    {paginatedRows.map((row, idx) => (
                       <tr
                         key={row._id}
-                        className="hover:bg-blue-50/50 even:bg-gray-50 transition"
+                        className="hover:bg-blue-50 even:bg-gray-50 transition"
                       >
+                        <td className="px-2 py-2">{idx + 1}</td>
                         <td className="px-2 py-2 font-medium text-blue-600">
                           {row.transferId || "—"}
                         </td>
@@ -399,6 +451,9 @@ function TransferHistoryTable() {
                           )}
                         </td>
                         <td className="px-2 py-2 text-gray-700">
+                          {row.status || "—"}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700">
                           {row.transferDate
                             ? new Date(row.transferDate).toLocaleDateString(
                                 "en-GB",
@@ -409,6 +464,9 @@ function TransferHistoryTable() {
                                 }
                               )
                             : "—"}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700">
+                          {row.transferedBy?.name || "—"}
                         </td>
                         <td className="px-2 py-2 text-gray-700">
                           {row.approvedDate
@@ -423,16 +481,10 @@ function TransferHistoryTable() {
                             : "—"}
                         </td>
                         <td className="px-2 py-2 text-gray-700">
-                          {row.status || "—"}
+                          {row.approvedBy?.name || "—"}
                         </td>
                         <td className="px-2 py-2 text-gray-700">
                           {row.remarks || "—"}
-                        </td>
-                        <td className="px-2 py-2 text-gray-700">
-                          {row.transferedBy?.name || "—"}
-                        </td>
-                        <td className="px-2 py-2 text-gray-700">
-                          {row.approvedBy?.name || "—"}
                         </td>
                       </tr>
                     ))}

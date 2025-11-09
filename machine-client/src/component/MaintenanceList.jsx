@@ -150,7 +150,14 @@ function MaintenanceList() {
           (currentPage - 1) * rowsPerPage,
           currentPage * rowsPerPage
         );
-
+  // ✅ Summary cards calculation
+  const totalMaintenances = maintenances.length;
+  const completedMaintenances = maintenances.filter(
+    (m) => m.status === "Maintenance Completed"
+  ).length;
+  const inProgressMaintenances = maintenances.filter(
+    (m) => m.status === "Maintenance In-Progress"
+  ).length;
   // 🔹 Export Excel
 
   const handleExportExcel = () => {
@@ -304,16 +311,41 @@ function MaintenanceList() {
     setSelectedMaintenance(null);
     setModalOpen(false);
   };
-
+  // ✅ Summary Card Component
+  const StatCard = ({ title, value, color }) => (
+    <div className="flex flex-col px-2 py-2 rounded-xl shadow-md border bg-white w-full">
+      <p className="text-sm font-medium text-gray-500 px-2">{title}</p>
+      <h2 className={`text-2xl px-2 font-bold mt-1 ${color}`}>{value}</h2>
+    </div>
+  );
   return (
     <>
       <Navbar />
       <div className="mt-10 w-full max-w-7xl mx-auto px-4">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-          <h3 className="text-2xl font-bold text-gray-800">
+          <h2 className="text-2xl font-bold text-gray-800">
             🧰 Maintenance Records
-          </h3>
+          </h2>
+          {/* ✅ Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+            <StatCard
+              title="🔵 Total Maintenance Records"
+              value={totalMaintenances}
+              color="text-blue-600"
+            />
 
+            <StatCard
+              title="🟡 Maintenance In-Progress"
+              value={inProgressMaintenances}
+              color="text-yellow-600"
+            />
+
+            <StatCard
+              title="🟢 Maintenance Completed"
+              value={completedMaintenances}
+              color="text-green-600"
+            />
+          </div>
           {message && (
             <div className="my-3 text-sm text-red-600 font-medium">
               {message}
@@ -338,6 +370,17 @@ function MaintenanceList() {
                 ))}
               </select>
             )}
+
+            <input
+              type="text"
+              placeholder="🔍 Search maintenance info..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-48 md:w-64"
+            />
             <select
               value={filters.status}
               onChange={(e) =>
@@ -349,17 +392,6 @@ function MaintenanceList() {
               <option value="Maintenance In-Progress">In-Progress</option>
               <option value="Maintenance Completed">Completed</option>
             </select>
-
-            <input
-              type="text"
-              placeholder="🔍 Search maintenance..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-48 md:w-64"
-            />
             <button
               onClick={handleExportExcel}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition"
@@ -416,7 +448,7 @@ function MaintenanceList() {
                         key={m._id}
                         className="hover:bg-blue-50 even:bg-gray-50 transition"
                       >
-                        <td className="px-2 py-2">{idx + 1}</td>
+                        <td className="border px-2 py-2">{idx + 1}</td>
                         <td
                           className="px-3 py-3 font-medium text-blue-600 cursor-pointer hover:underline"
                           onClick={() => openModal(m)}

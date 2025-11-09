@@ -84,32 +84,6 @@ function FactoryList() {
     setCurrentPage(1);
   };
 
-  /** 🔹 Export Excel */
-  // const handleExportExcel = () => {
-  //   const rows = filteredRows.map((f) => ({
-  //     FactoryName: f.factoryName,
-  //     FactoryLocation: f.factoryLocation,
-  //     CreatedBy: f.createdBy?.name || "—",
-  //     Role: f.createdBy?.role || "—",
-  //     // CreatedDate: f.createdAt
-  //     //   ? new Date(f.createdAt).toLocaleDateString()
-  //     //   : "—",
-  //     CreatedDate: f.createdAt ? new Date(f.createdAt) : "—",
-  //     // UpdatedDate: f.updatedAt
-  //     //   ? new Date(f.updatedAt).toLocaleDateString()
-  //     //   : "—",
-  //     UpdatedDate: f.updatedAt ? new Date(f.updatedAt) : "—",
-  //     FactoryNumber: f.factoryNumber,
-  //   }));
-
-  //   // const worksheet = XLSX.utils.json_to_sheet(rows);
-  //   const worksheet = XLSX.utils.json_to_sheet(rows, {
-  //     dateNF: "dd-mmm-yyyy", // ✅ Excel date format shortcut
-  //   });
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Factories");
-  //   XLSX.writeFile(workbook, "Factories.xlsx");
-  // };
   const handleExportExcel = () => {
     if (!filteredRows || filteredRows.length === 0) {
       alert("No data available to export.");
@@ -241,53 +215,50 @@ function FactoryList() {
       <div className="mt-10 w-full max-w-7xl mx-auto px-4">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
           {/* Header + Filters */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              🏭 Factory List
-            </h3>
 
-            <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full md:w-auto">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="🔍 Search factories..."
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-indigo-500 shadow-sm"
-              />
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                onClick={handleExportExcel}
-                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-medium rounded-lg shadow hover:from-blue-700 hover:to-blue-600 transition"
-              >
-                ⬇ Export Excel
-              </button>
-              <button
-                onClick={handleResetFilters}
-                className="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-400 text-white text-sm font-medium rounded-lg shadow hover:from-gray-600 hover:to-gray-500 transition"
-              >
-                🔄 Reset
-              </button>
-            </div>
+          <h2 className="text-2xl font-bold text-gray-800">🏭 Factory List</h2>
+
+          <div className="flex flex-wrap gap-3 mt-4 mb-6">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="🔍 Search factories..."
+              className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-48 md:w-64"
+            />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-medium rounded-lg shadow hover:from-blue-700 hover:to-blue-600 transition"
+            >
+              ⬇ Export Excel
+            </button>
+            <button
+              onClick={handleResetFilters}
+              className="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-400 text-white text-sm font-medium rounded-lg shadow hover:from-gray-600 hover:to-gray-500 transition"
+            >
+              🔄 Reset
+            </button>
           </div>
 
           {/* Table */}

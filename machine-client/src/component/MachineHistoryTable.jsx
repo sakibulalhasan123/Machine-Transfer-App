@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Select from "react-select";
 import Navbar from "./Navbar";
 import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
+// adjust path if in different folder
 
 const customStyles = {
   control: (provided) => ({
@@ -13,13 +14,36 @@ const customStyles = {
     minHeight: "42px",
     "&:hover": { borderColor: "#6366f1" },
   }),
+
   option: (provided, state) => ({
     ...provided,
     backgroundColor: state.isFocused ? "#eef2ff" : "white",
     color: state.isFocused ? "#4338ca" : "black",
     padding: "8px 12px",
   }),
-  placeholder: (provided) => ({ ...provided, color: "#9ca3af" }),
+
+  placeholder: (provided) => ({
+    ...provided,
+    color: "#9ca3af",
+  }),
+
+  // ✅ dropdown যেন body-এর উপর দেখায় (clipping fix)
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 9999,
+  }),
+
+  menu: (base) => ({
+    ...base,
+    zIndex: 9999,
+    maxHeight: "350px",
+  }),
+
+  menuList: (base) => ({
+    ...base,
+    maxHeight: "350px",
+    overflowY: "auto",
+  }),
 };
 
 function MachineHistoryPage() {
@@ -33,7 +57,10 @@ function MachineHistoryPage() {
   const [selectedTransfer, setSelectedTransfer] = useState(null);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const columns = [
     { label: "Machine Code", key: "machineCode" },
@@ -44,6 +71,13 @@ function MachineHistoryPage() {
     { label: "Transfer ID", key: "transferId" },
     { label: "Remarks", key: "remarks" },
   ];
+  const [stats, setStats] = useState({
+    total: 0,
+    available: 0,
+    transferIn: 0,
+    transferOut: 0,
+    returnInProgress: 0,
+  });
 
   useEffect(() => {
     const fetchFactories = async () => {
@@ -114,6 +148,17 @@ function MachineHistoryPage() {
   useEffect(() => {
     if (!selectedFactory) {
       setFilteredMachines([]);
+      setStats({
+        total: 0,
+        inHouse: 0,
+        transferInitiated: 0,
+        transferInProgress: 0,
+        transferIn: 0,
+        transferOut: 0,
+        returnInitiated: 0,
+        returnDispatched: 0,
+        returnInProgress: 0,
+      });
       return;
     }
     const factoryName = selectedFactory.label.split(" (")[0];
@@ -145,8 +190,8 @@ function MachineHistoryPage() {
             return null;
         } else if (statusFilter === "Transfer Initiated") {
           if (lastHistory.status !== "Transfer Initiated") return null;
-        } else if (statusFilter === "Transfer In-progress") {
-          if (lastHistory.status !== "Transfer In-progress") return null;
+        } else if (statusFilter === "Transfer In-Progress") {
+          if (lastHistory.status !== "Transfer In-Progress") return null;
         } else if (statusFilter === "Transfer In (Borrowed)") {
           if (lastHistory.status !== "Borrowed") return null;
         } else if (statusFilter === "Transfer Out (Transferred)") {
@@ -171,28 +216,80 @@ function MachineHistoryPage() {
       .filter(Boolean);
 
     setFilteredMachines(filtered);
+
+    setStats({
+      total: filtered.length,
+      inHouse: filtered.filter((m) => ["In-House"].includes(m.currentStatus))
+        .length,
+      transferInitiated: filtered.filter((m) =>
+        ["Transfer Initiated"].includes(m.currentStatus)
+      ).length,
+      transferInProgress: filtered.filter(
+        (m) => m.currentStatus === "Transfer In-Progress"
+      ).length,
+      transferIn: filtered.filter((m) => m.currentStatus === "Borrowed").length,
+      transferOut: filtered.filter((m) =>
+        ["Transferred"].includes(m.currentStatus)
+      ).length,
+      returnInProgress: filtered.filter(
+        (m) => m.currentStatus === "Return In-Progress"
+      ).length,
+      returnInitiated: filtered.filter(
+        (m) => m.currentStatus === "Return Initiated"
+      ).length,
+      returnDispatched: filtered.filter(
+        (m) => m.currentStatus === "In Return Transit"
+      ).length,
+    });
   }, [selectedFactory, statusFilter, machines]);
 
-  // Sorting
   const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc")
-      direction = "desc";
-    setSortConfig({ key, direction });
+    if (sortConfig.key === key) {
+      // toggle between asc -> desc -> null
+      const nextDirection =
+        sortConfig.direction === "asc"
+          ? "desc"
+          : sortConfig.direction === "desc"
+          ? null
+          : "asc";
+      setSortConfig({
+        key: nextDirection ? key : null,
+        direction: nextDirection,
+      });
+    } else {
+      // new column clicked, start with ascending
+      setSortConfig({ key, direction: "asc" });
+    }
   };
 
-  const sortedMachines = [...filteredMachines].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    let valA = a[sortConfig.key];
-    let valB = b[sortConfig.key];
-    if (sortConfig.key === "lastDate") {
-      valA = new Date(valA);
-      valB = new Date(valB);
-    }
-    if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-    if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
-    return 0;
-  });
+  const displayedMachines = [...filteredMachines];
+  if (sortConfig.key && sortConfig.direction) {
+    displayedMachines.sort((a, b) => {
+      let valA = a[sortConfig.key];
+      let valB = b[sortConfig.key];
+
+      if (sortConfig.key === "lastDate" || sortConfig.key === "purchaseDate") {
+        valA = valA ? new Date(valA) : new Date(0);
+        valB = valB ? new Date(valB) : new Date(0);
+      }
+
+      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+  const totalPages =
+    rowsPerPage === "All"
+      ? 1
+      : Math.ceil(displayedMachines.length / rowsPerPage);
+
+  const paginatedRows =
+    rowsPerPage === "All"
+      ? displayedMachines
+      : displayedMachines.slice(
+          (currentPage - 1) * rowsPerPage,
+          currentPage * rowsPerPage
+        );
 
   // Transfer modal
   const handleTransferClick = (machine, factoryName, transferId) => {
@@ -214,15 +311,111 @@ function MachineHistoryPage() {
     setSelectedMachine(null);
     setIsModalOpen(false);
   };
+  const resetFilters = () => {
+    setSelectedFactory(null);
+    setStatusFilter("All Machines");
+    setSortConfig({ key: null, direction: null }); // ✅ sorting reset
+  };
+  const StatCard = ({ title, value, color }) => (
+    <div className="flex flex-col px-2 py-2 rounded-xl shadow-md border bg-white w-full">
+      <p className="text-sm font-medium text-gray-500 px-2">{title}</p>
+      <h2 className={`text-2xl px-2 font-bold mt-1 ${color}`}>{value}</h2>
+    </div>
+  );
+  const getRowColor = (status) => {
+    switch (status) {
+      case "In-House":
+        return "bg-emerald-100 text-emerald-700 hover:bg-emerald-200";
 
+      case "Transfer Initiated":
+        return "bg-indigo-300 text-indigo-700 hover:bg-indigo-400";
+
+      case "Transfer In-Progress":
+        return "bg-amber-300 text-amber-700 hover:bg-amber-400";
+
+      case "Borrowed":
+        return "bg-cyan-300 text-cyan-700 hover:bg-cyan-400";
+
+      case "Transferred":
+        return "bg-violet-300 text-violet-700 hover:bg-violet-400";
+
+      case "Return Initiated":
+        return "bg-rose-300 text-rose-700 hover:bg-rose-400";
+
+      case "Return In-Progress":
+        return "bg-red-300 text-red-700 hover:bg-red-400";
+
+      case "In Return Transit":
+        return "bg-orange-300 text-orange-700 hover:bg-orange-400";
+
+      default:
+        return "bg-slate-100 text-slate-600 hover:bg-slate-200";
+    }
+  };
   return (
     <>
       <Navbar />
-      <div className="flex flex-col items-center justify-start min-h-screen bg-gray-50 px-6 py-8">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-6xl border border-gray-200">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">
-            Machine History Report
+      <div className="mt-10 w-full max-w-7xl mx-auto px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+          <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+            🧰 Machine History Report
           </h2>
+          {/* ✅ Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+            <StatCard
+              title="🔷 Total Machines"
+              value={stats.total}
+              color="text-slate-700"
+            />
+
+            <StatCard
+              title="🟢 In-House"
+              value={stats.inHouse}
+              color="text-emerald-600"
+            />
+
+            <StatCard
+              title="🔵 Transfer Initiated"
+              value={stats.transferInitiated}
+              color="text-indigo-600"
+            />
+
+            <StatCard
+              title="🟡 Transfer In Progress"
+              value={stats.transferInProgress}
+              color="text-amber-600"
+            />
+
+            <StatCard
+              title="🟣 Transfer In"
+              value={stats.transferIn}
+              color="text-cyan-600"
+            />
+
+            <StatCard
+              title="🟤 Transfer Out"
+              value={stats.transferOut}
+              color="text-violet-600"
+            />
+
+            <StatCard
+              title="📥 Return Initiated"
+              value={stats.returnInitiated}
+              color="text-rose-600"
+            />
+
+            <StatCard
+              title="🔄 Return In-Progress"
+              value={stats.returnInProgress}
+              color="text-red-600"
+            />
+
+            <StatCard
+              title="🚚 Return Dispatched"
+              value={stats.returnDispatched}
+              color="text-orange-600"
+            />
+          </div>
 
           {message && (
             <div className="mb-6 p-4 rounded-md text-sm bg-red-50 border border-red-300 text-red-700 shadow-sm">
@@ -231,10 +424,10 @@ function MachineHistoryPage() {
           )}
 
           {/* Filters */}
-          <div className="mb-6 grid md:grid-cols-2 gap-6">
+          <div className="mb-6 grid md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Select Factory
+              <label className="block text-gray-700 font-bold mb-2 mt-3">
+                Select Factory :
               </label>
 
               <Select
@@ -247,12 +440,16 @@ function MachineHistoryPage() {
                 placeholder="Select a factory..."
                 isClearable
                 styles={customStyles}
+                menuPortalTarget={document.body} // ✅ prevents clipping
+                menuPosition="fixed"
+                menuPlacement="top" // ✅ same here
+                menuShouldScrollIntoView={true}
               />
             </div>
 
             <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Status Filter
+              <label className="block text-gray-700 font-bold mb-2 mt-3">
+                Status Filter :
               </label>
               <Select
                 options={[
@@ -292,103 +489,166 @@ function MachineHistoryPage() {
                 onChange={(option) => setStatusFilter(option.value)}
                 placeholder="Select status..."
                 styles={customStyles}
+                menuPortalTarget={document.body} // ✅ prevents clipping
+                menuPosition="fixed"
+                menuShouldScrollIntoView={true}
               />
+            </div>
+            <div className="block text-gray-700 font-medium mt-12">
+              <button
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600 transition"
+                onClick={resetFilters}
+              >
+                🔄 Reset
+              </button>
             </div>
           </div>
 
           {/* Table */}
           {loading ? (
-            <p className="text-gray-500 text-center py-8">
-              Loading machines...
-            </p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold tracking-wide">
-                  <tr>
-                    {columns.map((col) => (
-                      <th
-                        key={col.key}
-                        className="px-4 py-3 text-center text-sm font-bold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
-                        onClick={() => handleSort(col.key)}
-                      >
-                        <div className="flex items-center">
-                          {col.label}
-                          {sortConfig.key === col.key &&
-                            (sortConfig.direction === "asc" ? (
-                              <ChevronUpIcon className="w-4 h-4 ml-1 text-gray-600" />
-                            ) : (
-                              <ChevronDownIcon className="w-4 h-4 ml-1 text-gray-600" />
-                            ))}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-blue divide-y divide-gray-200 text-center">
-                  {sortedMachines.map((m) => (
-                    <tr
-                      key={m._id}
-                      className="hover:bg-indigo-50 transition-colors duration-150"
-                    >
-                      <td
-                        className="px-6 py-4 text-sm text-blue-700 cursor-pointer hover:underline"
-                        onClick={() => handleMachineClick(m)}
-                      >
-                        {m.machineCode}
-                      </td>
-                      <td className="px-2 py-2 text-sm text-gray-700">
-                        {m.machineCategory}
-                      </td>
-                      <td className="px-2 py-2 text-sm text-gray-700">
-                        {m.currentStatus}
-                      </td>
-                      <td className="px-2 py-2 text-sm text-gray-500">
-                        {m.purchaseDate
-                          ? new Date(m.purchaseDate).toLocaleDateString(
-                              "en-GB",
-                              {
-                                day: "2-digit",
-                                month: "short", // ✅ e.g. Oct, Nov, Dec
-                                year: "numeric",
-                                timeZone: "UTC", // ✅ prevents 6-hour shift issues
-                              }
-                            )
-                          : "-"}
-                      </td>
-
-                      <td className="px-2 py-2 text-sm text-gray-500">
-                        {m.lastDate
-                          ? new Date(m.lastDate).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short", // ✅ short month name like "Oct"
-                              year: "numeric",
-                              timeZone: "UTC", // ✅ timezone-safe
-                            })
-                          : "-"}
-                      </td>
-
-                      <td
-                        className="px-2 py-2 text-sm font-medium text-indigo-600 cursor-pointer hover:underline"
-                        onClick={() =>
-                          handleTransferClick(
-                            m,
-                            selectedFactory.label.split(" (")[0],
-                            m.transferId
-                          )
-                        }
-                      >
-                        {m.transferId || "-"}
-                      </td>
-
-                      <td className="px-2 py-2 text-sm text-gray-700">
-                        {m.remarks}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
             </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold tracking-wide">
+                    <tr>
+                      {columns.map((col) => (
+                        <th
+                          key={col.key}
+                          className="px-3 py-3 border text-center text-sm   uppercase tracking-wider cursor-pointer select-none"
+                          onClick={() => handleSort(col.key)}
+                        >
+                          <div className="flex items-center justify-center">
+                            {col.label}
+                            <span className="ml-1 text-gray-600">
+                              {sortConfig.key === col.key
+                                ? sortConfig.direction === "asc"
+                                  ? "▲"
+                                  : sortConfig.direction === "desc"
+                                  ? "▼"
+                                  : "▲▼"
+                                : "▲▼"}
+                            </span>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {paginatedRows.map((m) => (
+                      <tr
+                        key={m._id}
+                        className={`${getRowColor(
+                          m.currentStatus
+                        )} transition-colors duration-200`}
+                      >
+                        <td
+                          className="px-6 py-4 text-sm text-blue-700 cursor-pointer hover:underline"
+                          onClick={() => handleMachineClick(m)}
+                        >
+                          {m.machineCode}
+                        </td>
+                        <td className="px-2 py-2 text-sm text-gray-700">
+                          {m.machineCategory}
+                        </td>
+                        <td className="px-2 py-2 text-sm text-gray-700">
+                          {m.currentStatus}
+                        </td>
+                        <td className="px-2 py-2 text-sm text-gray-500">
+                          {m.purchaseDate
+                            ? new Date(m.purchaseDate).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "2-digit",
+                                  month: "short", // ✅ e.g. Oct, Nov, Dec
+                                  year: "numeric",
+                                }
+                              )
+                            : "-"}
+                        </td>
+
+                        <td className="px-2 py-2 text-sm text-gray-500">
+                          {m.lastDate
+                            ? new Date(m.lastDate).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short", // ✅ short month name like "Oct"
+                                year: "numeric",
+                              })
+                            : "-"}
+                        </td>
+
+                        <td
+                          className="px-2 py-2 text-sm font-medium text-indigo-600 cursor-pointer hover:underline"
+                          onClick={() => {
+                            if (!selectedFactory) return; // ✅ Prevent error when cleared
+                            handleTransferClick(
+                              m,
+                              selectedFactory.label.split(" (")[0],
+                              m.transferId
+                            );
+                          }}
+                        >
+                          {m.transferId || "-"}
+                        </td>
+
+                        <td className="px-2 py-2 text-sm text-gray-700">
+                          {m.remarks}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Pagination */}
+              <div className="flex flex-col md:flex-row justify-between items-center mt-6 gap-3">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>Rows per page:</span>
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(
+                        e.target.value === "All"
+                          ? "All"
+                          : parseInt(e.target.value)
+                      );
+                      setCurrentPage(1);
+                    }}
+                    className="border rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value="All">All</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => p - 1)}
+                    className="px-3 py-1 border rounded-md text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    ◀ Prev
+                  </button>
+
+                  <span className="text-sm text-gray-700">
+                    Page <span className="font-semibold">{currentPage}</span> of{" "}
+                    <span className="font-semibold">{totalPages}</span>
+                  </span>
+
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    className="px-3 py-1 border rounded-md text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Next ▶
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -444,7 +704,6 @@ function MachineHistoryPage() {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",
-                          timeZone: "UTC", // ✅ ensures consistent date
                         }
                       )
                     : "-"}
@@ -531,7 +790,6 @@ function MachineHistoryPage() {
                           day: "2-digit",
                           month: "short", // e.g. Oct
                           year: "numeric",
-                          timeZone: "UTC", // ensures consistent date
                         }
                       )
                     : "-"}
@@ -545,7 +803,6 @@ function MachineHistoryPage() {
                         day: "2-digit",
                         month: "short", // e.g. Oct
                         year: "numeric",
-                        timeZone: "UTC", // ensures consistent date
                       })
                     : "-"}
                 </p>

@@ -55,7 +55,7 @@ const transferSchema = new mongoose.Schema(
     },
     remarks: {
       type: String,
-      default: "",
+      default: "Transfer Initiated",
     },
   },
   { timestamps: true }
