@@ -155,7 +155,7 @@ export default function IdleStartForm() {
       <div className="flex justify-center mt-12 px-4">
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-lg grid gap-5 border border-gray-100"
+          className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-xl grid gap-5 border border-gray-100"
         >
           <h2 className="text-2xl font-bold mb-2 text-center text-gray-800">
             Start Machine Idle

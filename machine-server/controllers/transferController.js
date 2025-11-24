@@ -2,6 +2,8 @@ const Factory = require("../models/Factory");
 const Machine = require("../models/Machine");
 const Transfer = require("../models/Transfer");
 const Maintenance = require("../models/Maintenance");
+const User = require("../models/User");
+const NotificationService = require("./notificationController"); // or relative path
 /**
  * Get all machines of a factory
  * @route GET /api/factories/:factoryId/machines
@@ -21,8 +23,6 @@ exports.getMachinesByFactory = async (req, res) => {
 };
 /**
  * Create Transfer
- * Rule: A → B transfer er por B theke onno factory te transfer kora jabe na
- * jokhon porjonto machine return hoy A te
  * @route POST /api/transfers
  * @body { fromFactory, toFactory, machineIds, remarks }
  */
@@ -91,6 +91,50 @@ exports.createTransfer = async (req, res) => {
         error: "Some machines could not be updated. Please check again.",
       });
     }
+    // Fetch machine codes For Notifications
+    const machines = await Machine.find({ _id: { $in: machineIds } }).select(
+      "machineCode"
+    );
+    const machineCodes = machines.map((m) => m.machineCode);
+
+    // Fetch factory names
+    const fromFactoryData = await Factory.findById(fromFactory).select(
+      "factoryName"
+    );
+    const toFactoryData = await Factory.findById(toFactory).select(
+      "factoryName"
+    );
+
+    const fromFactoryName = fromFactoryData
+      ? fromFactoryData.factoryName
+      : fromFactory;
+    const toFactoryName = toFactoryData ? toFactoryData.factoryName : toFactory;
+    // Determine recipients
+    const factoryUsers = await User.find({
+      factoryId: { $in: [fromFactory, toFactory] },
+    }).select("_id");
+    const admins = await User.find({ role: "admin" }).select("_id");
+
+    let recipients = [
+      ...factoryUsers.map((u) => u._id),
+      ...admins.map((a) => a._id),
+    ];
+    recipients = [...new Set(recipients.map(String))];
+    // Send Notification
+    await NotificationService.createAndEmitNotification(req, {
+      title: "New Transfer Initiation Created",
+      message: `Transfer Initiated: ${
+        machineCodes.length
+      } machine(s) (${machineCodes.join(
+        ", "
+      )}) have been successfully transfer Initiated from "${fromFactoryName}" to "${toFactoryName}" by ${
+        req.user.name || "Someone"
+      }.`,
+
+      type: "transfer",
+      createdBy: req.user._id,
+      recipients, // 🔹 এটা add করতে হবে
+    });
 
     return res.status(201).json({
       message: "Transfer(s) Initiated successfully",
@@ -133,6 +177,37 @@ exports.receiveTransfer = async (req, res) => {
     machine.factoryId = transfer.toFactory;
     machine.status = "Borrowed";
     await machine.save();
+    // ----------------------------------------
+    // ✅ Add Notification Here
+    // ----------------------------------------
+
+    // Machine Code fetch
+    const machineData = await Machine.findById(transfer.machineId).select(
+      "machineCode"
+    );
+
+    // Factory Names fetch
+    const fromFactory = await Factory.findById(transfer.fromFactory).select(
+      "factoryName"
+    );
+    const toFactory = await Factory.findById(transfer.toFactory).select(
+      "factoryName"
+    );
+
+    await NotificationService.createAndEmitNotification(req, {
+      title: "Transfer Received",
+      message: `Machine ${
+        machineData.machineCode
+      } has been successfully transfer received by "${
+        toFactory.factoryName
+      }" from "${fromFactory.factoryName}". Confirmed by ${
+        req.user.name || "Someone"
+      }.`,
+      type: "transfer",
+      createdBy: req.user._id,
+    });
+
+    // ----------------------------------------
 
     return res.status(200).json({ message: "Transfer received", transfer });
   } catch (err) {
@@ -249,6 +324,36 @@ exports.returnToOriginFactory = async (req, res) => {
         await machine.save();
 
         initiatedMachines.push(machine);
+
+        // ------------------------------------------
+        // ✅ Notification Logic
+        // ------------------------------------------
+
+        // Machine Code fetch
+        const machineData = await Machine.findById(machine._id).select(
+          "machineCode"
+        );
+
+        // Factory names fetch (from current and origin)
+        const fromFactoryData = await Factory.findById(
+          machine.factoryId
+        ).select("factoryName");
+        const toFactoryData = await Factory.findById(originFactory).select(
+          "factoryName"
+        );
+
+        await NotificationService.createAndEmitNotification(req, {
+          title: "Return To Origin Initiated",
+          message: `Return process started for machine ${
+            machineData.machineCode
+          }. Sending back from "${fromFactoryData?.factoryName}" to "${
+            toFactoryData?.factoryName
+          }". Initiated by ${req.user.name || "Someone"}.`,
+          type: "transfer",
+          createdBy: req.user._id,
+        });
+
+        // ------------------------------------------
       } catch (innerErr) {
         console.error(`[Return] Failed machine ${machineId}:`, innerErr);
       }
@@ -345,7 +450,43 @@ exports.receiveReturn = async (req, res) => {
     machine.status = "In-House";
 
     await machine.save();
+    // ------------------------------------------
+    // 🔔 Notification Added (same style as returnToOriginFactory)
+    // ------------------------------------------
 
+    // Fetch machine code
+    const machineData = await Machine.findById(machine._id).select(
+      "machineCode"
+    );
+
+    // Fetch factory names
+    const originFactory = await Factory.findById(transfer.toFactory).select(
+      "factoryName"
+    );
+    const fromFactory = await Factory.findById(transfer.fromFactory).select(
+      "factoryName"
+    );
+
+    await NotificationService.createAndEmitNotification(req, {
+      title: "Return Completed",
+      message: `Machine ${
+        machineData.machineCode
+      } has been successfully returned from "${
+        fromFactory?.factoryName
+      }" to the origin factory "${originFactory?.factoryName}". Confirmed by ${
+        req.user.name || "Someone"
+      }.`,
+      type: "transfer",
+      createdBy: req.user._id,
+      meta: {
+        machineId: machine._id,
+        transferId: transfer._id,
+        from: transfer.fromFactory,
+        to: transfer.toFactory,
+      },
+    });
+
+    // ------------------------------------------
     return res.status(200).json({
       message: "✅ Return received successfully",
       machine,

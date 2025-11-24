@@ -1,6 +1,7 @@
 const Maintenance = require("../models/Maintenance");
 const Machine = require("../models/Machine");
-
+const Factory = require("../models/Factory");
+const NotificationService = require("./notificationController"); // or relative path
 /**
  * Get available machines for a factory
  * Rule:
@@ -102,6 +103,36 @@ exports.createMaintenance = async (req, res) => {
       { _id: { $in: machineIds } },
       { $set: { status: "Maintenance In-Progress" } }
     );
+
+    // ---------------------------------------------------------
+    // 🔔 Notification Section (Professional)
+    // ---------------------------------------------------------
+    // Fetch machine codes
+    const machines = await Machine.find({ _id: { $in: machineIds } }).select(
+      "machineCode"
+    );
+    const machineCodes = machines.map((m) => m.machineCode);
+
+    // Fetch factory Name
+    const factoryData = await Factory.findById(factoryId).select("factoryName");
+    const factoryName = factoryData ? factoryData.factoryName : factoryId;
+
+    // Send Notification
+    await NotificationService.createAndEmitNotification(req, {
+      title: "Maintenance Initiation Created",
+      message: `Maintenance Initiated: ${
+        machineCodes.length
+      } machine(s) (${machineCodes.join(
+        ", "
+      )}) have been successfully marked for "${maintenanceType}" maintenance at "${factoryName}" by ${
+        req.user.name || "Someone"
+      }.`,
+
+      type: "maintenance",
+      createdBy: req.user._id,
+    });
+
+    // ---------------------------------------------------------
     res.status(201).json({
       message: "Maintenance record(s) created successfully",
       maintenances,
@@ -199,6 +230,36 @@ exports.updateMaintenanceStatus = async (req, res) => {
       }
     }
 
+    // ============================
+    // 7️⃣ Fetch Machine & Factory Details for Notification
+    // ============================
+    const machineData = await Machine.findById(maintenance.machineId).select(
+      "machineCode"
+    );
+
+    const factoryData = await Factory.findById(maintenance.factoryId).select(
+      "factoryName"
+    );
+
+    const machineCode = machineData
+      ? machineData.machineCode
+      : maintenance.machineId;
+    const factoryName = factoryData
+      ? factoryData.factoryName
+      : maintenance.factoryId;
+
+    // ============================
+    // 8️⃣ Send Notification
+    // ============================
+    await NotificationService.createAndEmitNotification(req, {
+      title: `Maintenance Status Updated`,
+      message: `Maintenance status for machine "${machineCode}" at "${factoryName}" has been updated from "${previousStatus}" to "${newStatus}" by ${
+        req.user.name || "Someone"
+      }.`,
+      type: "maintenance",
+      createdBy: req.user._id,
+    });
+    // ============================
     res
       .status(200)
       .json({ message: "Status updated successfully", maintenance });

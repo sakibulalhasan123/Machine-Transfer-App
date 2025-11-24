@@ -4,8 +4,11 @@ const { protect } = require("../middleware/authMiddleware"); // JWT auth
 // Import controller functions for factories
 const {
   addFactory,
-  updateFactory,
   getFactories,
+  getFactoryById,
+  updateFactory,
+  updateFactoryStatus,
+  deleteFactory,
 } = require("../controllers/factoryController");
 const transferController = require("../controllers/transferController");
 // ==========================
@@ -21,6 +24,11 @@ router.post("/", protect, addFactory); // only authenticated users can add
 // GET request to /api/factories
 // Calls the getFactories controller function
 router.get("/", protect, getFactories);
+
+router.get("/factory/:id", protect, getFactoryById);
+router.put("/factory/:id/status", protect, updateFactoryStatus);
+router.put("/factory/:id", protect, updateFactory);
+router.delete("/factory/:id", protect, deleteFactory); // Soft delete
 
 // GET machines by factory
 router.get(

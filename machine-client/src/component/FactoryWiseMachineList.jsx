@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx-js-style";
-
+import { FaEdit, FaTrash, FaToggleOn, FaToggleOff } from "react-icons/fa"; // icons
 import Navbar from "./Navbar";
 
 function FactoryMachineList() {
@@ -13,41 +13,47 @@ function FactoryMachineList() {
   const [itemsPerPageMap, setItemsPerPageMap] = useState({});
   const [statusFilter, setStatusFilter] = useState("");
 
+  const [selectedMachine, setSelectedMachine] = useState(null);
+  const [editMachineCategory, setEditMachineCategory] = useState("");
+  const [editMachineGroup, setEditMachineGroup] = useState("");
+  const [editMachineCode, setEditMachineCode] = useState("");
+  const [editPurchaseDate, setEditPurchaseDate] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
+
   const defaultItemsPerPage = 10;
   const itemsPerPageOptions = [5, 10, 20, 50];
 
   // Fetch machines grouped by factory
+
+  const fetchMachines = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      console.error("No auth token found");
+      setMessage("❌ User not authenticated.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/machines`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch machines");
+      const data = await res.json();
+      setMachinesByFactory(data.machinesByFactory || {});
+    } catch (err) {
+      console.error("❌ Error fetching machines:", err);
+      setMachinesByFactory({});
+      setMessage("❌ Failed to load machines.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchMachines = async () => {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        console.error("No auth token found");
-        setMessage("❌ User not authenticated.");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/machines`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        if (!res.ok) throw new Error("Failed to fetch machines");
-        const data = await res.json();
-        setMachinesByFactory(data.machinesByFactory || {});
-      } catch (err) {
-        console.error("❌ Error fetching machines:", err);
-        setMachinesByFactory({});
-        setMessage("❌ Failed to load machines.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchMachines();
   }, []);
 
@@ -276,6 +282,123 @@ function FactoryMachineList() {
         part
       )
     );
+  };
+  const handleMachineStatusToggle = async (id, currentStatus) => {
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/${id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ isActive: !currentStatus }),
+        }
+      );
+
+      const data = await res.json();
+      if (data.success) {
+        alert("Machine status updated");
+        fetchMachines(); // refresh list
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update machine status");
+    }
+  };
+
+  const handleEdit = async (id) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setSelectedMachine(data.machine);
+        setEditMachineCategory(data.machine.machineCategory);
+        setEditMachineGroup(data.machine.machineGroup);
+        setEditMachineCode(data.machine.machineCode);
+
+        setEditPurchaseDate(
+          data.machine.purchaseDate
+            ? new Date(data.machine.purchaseDate).toISOString().split("T")[0]
+            : ""
+        );
+        setEditStatus(data.machine.status);
+        setShowEditModal(true);
+      } else alert(data.message);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to fetch machine data");
+    }
+  };
+  const handleSaveEdit = async () => {
+    if (!editMachineCode || !editMachineCategory || !editMachineGroup) {
+      alert("Factory, Category & Group are required");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/${selectedMachine._id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            machineCode: editMachineCode,
+            machineCategory: editMachineCategory,
+            machineGroup: editMachineGroup,
+            purchaseDate: editPurchaseDate,
+            status: editStatus,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        setShowEditModal(false);
+        fetchMachines(); // Refresh list
+      } else alert(data.message);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update machine");
+    }
+  };
+  const handleSoftDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this machine?"))
+      return;
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/${id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        fetchMachines(); // Refresh list
+      } else alert(data.message);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete machine");
+    }
   };
 
   return (
@@ -509,6 +632,8 @@ function FactoryMachineList() {
                             <th className="px-4 py-3 border">Purchase Date</th>
                             <th className="px-4 py-3 border">Created By</th>
                             <th className="px-4 py-3 border">Created Date</th>
+                            <th className="px-2 py-2 border">Active Status</th>
+                            <th className="px-4 py-3 border">Actions</th>
                             {/* <th className="px-4 py-3 border">Updated Date</th> */}
                           </tr>
                         </thead>
@@ -557,10 +682,140 @@ function FactoryMachineList() {
                                   }
                                 )}
                               </td>
+                              <td className="px-2 py-2 text-center">
+                                <button
+                                  onClick={() =>
+                                    handleMachineStatusToggle(
+                                      machine._id,
+                                      machine.isActive
+                                    )
+                                  }
+                                  className="text-2xl transition-transform hover:scale-110"
+                                  title={
+                                    machine.isActive
+                                      ? "Click to deactivate"
+                                      : "Click to activate"
+                                  }
+                                >
+                                  {machine.isActive ? (
+                                    <FaToggleOn className="text-green-600" />
+                                  ) : (
+                                    <FaToggleOff className="text-gray-400" />
+                                  )}
+                                </button>
+                              </td>
+
+                              <td className="px-4 py-3 flex gap-2">
+                                <button
+                                  onClick={() => handleEdit(machine._id)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  onClick={() => handleSoftDelete(machine._id)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      {/* Edit Modal */}
+                      {showEditModal && (
+                        <div className="fixed inset-0 flex items-center justify-center z-50">
+                          <div className="bg-white border rounded-xl p-6 shadow-sm w-80">
+                            <h4 className="text-lg font-bold mb-3">
+                              ✏️ Edit Machine
+                            </h4>
+
+                            <label className="block mb-1 text-sm font-medium">
+                              Machine Code
+                            </label>
+                            <input
+                              type="text"
+                              value={editMachineCode}
+                              onChange={(e) =>
+                                setEditMachineCode(e.target.value)
+                              }
+                              className="w-full px-2 py-1 border rounded mb-2 text-sm"
+                            />
+
+                            <label className="block mb-1 text-sm font-medium">
+                              Category
+                            </label>
+                            <input
+                              type="text"
+                              value={editMachineCategory}
+                              onChange={(e) =>
+                                setEditMachineCategory(e.target.value)
+                              }
+                              className="w-full px-2 py-1 border rounded mb-2 text-sm"
+                            />
+
+                            <label className="block mb-1 text-sm font-medium">
+                              Group
+                            </label>
+                            <input
+                              type="text"
+                              value={editMachineGroup}
+                              onChange={(e) =>
+                                setEditMachineGroup(e.target.value)
+                              }
+                              className="w-full px-2 py-1 border rounded mb-2 text-sm"
+                            />
+
+                            <label className="block mb-1 text-sm font-medium">
+                              Purchase Date
+                            </label>
+                            <input
+                              type="date"
+                              value={editPurchaseDate}
+                              onChange={(e) =>
+                                setEditPurchaseDate(e.target.value)
+                              }
+                              className="w-full px-2 py-1 border rounded mb-2 text-sm"
+                            />
+
+                            <label className="block mb-1 text-sm font-medium">
+                              Machine Number
+                            </label>
+                            <input
+                              type="text"
+                              value={selectedMachine?.machineNumber || ""}
+                              disabled
+                              className="w-full px-2 py-1 border rounded mb-2 text-sm bg-gray-100"
+                            />
+
+                            <label className="block mb-1 text-sm font-medium">
+                              Status
+                            </label>
+                            <input
+                              type="text"
+                              value={selectedMachine?.status || ""}
+                              disabled
+                              className="w-full px-2 py-1 border rounded mb-2 text-sm bg-gray-100"
+                            />
+
+                            <div className="flex justify-end gap-2 mt-3">
+                              <button
+                                onClick={() => setShowEditModal(false)}
+                                className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleSaveEdit}
+                                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Pagination */}
                       <div className="flex justify-between items-center mt-3 px-4 py-2 bg-gray-50 rounded-b">

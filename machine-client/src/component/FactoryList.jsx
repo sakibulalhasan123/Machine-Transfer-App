@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx-js-style";
 import Navbar from "./Navbar";
+import { FaEdit, FaTrash, FaToggleOn, FaToggleOff } from "react-icons/fa";
 
 function FactoryList() {
   const [factories, setFactories] = useState([]);
@@ -14,31 +15,144 @@ function FactoryList() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedFactory, setSelectedFactory] = useState(null);
+  const [editFactoryName, setEditFactoryName] = useState("");
+  const [editFactoryLocation, setEditFactoryLocation] = useState("");
   // Fetch factories
+
+  const fetchFactories = async () => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/factories`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await res.json();
+      setFactories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Error fetching factories:", err);
+      setFactories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchFactories = async () => {
-      const token = localStorage.getItem("authToken");
-      try {
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/factories`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        const data = await res.json();
-        setFactories(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("❌ Error fetching factories:", err);
-        setFactories([]);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchFactories();
   }, []);
+  /** 🔹 Soft Delete Factory */
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this factory?"))
+      return;
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/factories/factory/${id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        fetchFactories(); // Refresh
+      } else alert(data.message);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete factory");
+    }
+  };
+
+  /** 🔹 Open Edit Modal */
+  const handleEdit = async (id) => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/factories/factory/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setSelectedFactory(data.data);
+        setEditFactoryName(data.data.factoryName);
+        setEditFactoryLocation(data.data.factoryLocation);
+        setShowEditModal(true);
+      } else alert(data.message);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to fetch factory data");
+    }
+  };
+
+  /** 🔹 Save Edit */
+  const handleSaveEdit = async () => {
+    if (!editFactoryName || !editFactoryLocation) {
+      alert("Factory Name & Location required");
+      return;
+    }
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/factories/factory/${selectedFactory._id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            factoryName: editFactoryName,
+            factoryLocation: editFactoryLocation,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        setShowEditModal(false);
+        fetchFactories(); // Refresh list
+      } else alert(data.message);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update factory");
+    }
+  };
+  const handleStatusToggle = async (id, currentStatus) => {
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/factories/factory/${id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ isActive: !currentStatus }),
+        }
+      );
+
+      const data = await res.json();
+      if (data.success) {
+        alert("Factory status updated");
+        fetchFactories(); // Refresh list
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update status");
+    }
+  };
 
   /** 🔹 Apply filters (search + date range) */
   const filteredRows = useMemo(() => {
@@ -52,7 +166,7 @@ function FactoryList() {
         f.factoryLocation?.toLowerCase().includes(searchText) ||
         f.createdBy?.name?.toLowerCase().includes(searchText) ||
         f.createdBy?.role?.toLowerCase().includes(searchText) ||
-        f.factoryNumber?.toLowerCase().includes(searchText); // ✅ এখন কাজ করবে
+        f.factoryNumber?.toLowerCase().includes(searchText);
       let matchesDate = true;
       if (from || to) {
         const createdAt = new Date(f.createdAt);
@@ -89,9 +203,17 @@ function FactoryList() {
       alert("No data available to export.");
       return;
     }
+    // 🔥 Only export Active + Not Deleted factories
+    const exportableRows = filteredRows.filter(
+      (f) => f.isActive === true && f.isDeleted === false
+    );
 
+    if (exportableRows.length === 0) {
+      alert("No active factories available to export!");
+      return;
+    }
     // ✅ Sort first by factoryName, then by factoryNumber
-    const sortedRows = [...filteredRows].sort((a, b) => {
+    const sortedRows = [...exportableRows].sort((a, b) => {
       const nameCompare = a.factoryName.localeCompare(b.factoryName);
       if (nameCompare !== 0) return nameCompare;
       // secondary sort by factoryNumber (numeric if possible)
@@ -208,6 +330,19 @@ function FactoryList() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Factories");
     XLSX.writeFile(workbook, "FactoryMasterList.xlsx", { cellStyles: true });
   };
+  // ⭐ Summary Calculations for FactoryList
+  const totalFactories = factories.length;
+  const activeFactories = factories.filter((f) => f.isActive).length;
+  const inactiveFactories =
+    factories?.filter((factory) => factory.isActive === false).length || 0;
+
+  // ⭐ Reusable Stat Card
+  const StatCard = ({ title, value, color }) => (
+    <div className="flex flex-col px-2 py-2 rounded-xl shadow-md border bg-white w-full">
+      <p className="text-sm font-medium text-gray-500 px-2">{title}</p>
+      <h2 className={`text-2xl px-2 font-bold mt-1 ${color}`}>{value}</h2>
+    </div>
+  );
 
   return (
     <>
@@ -217,6 +352,26 @@ function FactoryList() {
           {/* Header + Filters */}
 
           <h2 className="text-2xl font-bold text-gray-800">🏭 Factory List</h2>
+          {/* ⭐ Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            <StatCard
+              title="🏭 Total Factories"
+              value={totalFactories}
+              color="text-blue-600"
+            />
+
+            <StatCard
+              title="🟢 Active Factories"
+              value={activeFactories}
+              color="text-green-600"
+            />
+
+            <StatCard
+              title="🔴 Inactive Factories"
+              value={inactiveFactories}
+              color="text-red-600"
+            />
+          </div>
 
           <div className="flex flex-wrap gap-3 mt-4 mb-6">
             <input
@@ -276,6 +431,7 @@ function FactoryList() {
                 <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-indigo-50 text-indigo-800 uppercase text-xs font-semibold tracking-wide">
                     <tr>
+                      <th className="px-2 py-2 border">SL</th>
                       <th className="px-4 py-3 border">Factory Name</th>
                       <th className="px-4 py-3 border">Factory Location</th>
                       <th className="px-4 py-3 border">Created By (Name)</th>
@@ -283,15 +439,23 @@ function FactoryList() {
                       <th className="px-4 py-3 border">Created Date</th>
                       <th className="px-4 py-3 border">Updated Date</th>
                       <th className="px-4 py-3 border">Factory Number</th>
-                      {/* ✅ New column */}
+                      <th className="px-4 py-3 border">Active Status</th>
+                      <th className="px-4 py-3 border">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {paginatedRows.map((factory) => (
+                    {paginatedRows.map((factory, idx) => (
                       <tr
                         key={factory._id}
                         className="hover:bg-indigo-50/50 transition"
                       >
+                        <td className="border px-2 py-2">
+                          {(currentPage - 1) *
+                            (rowsPerPage === "All"
+                              ? paginatedRows.length
+                              : rowsPerPage) +
+                            (idx + 1)}
+                        </td>
                         <td className="px-4 py-3 font-medium text-gray-800">
                           {factory.factoryName}
                         </td>
@@ -324,6 +488,99 @@ function FactoryList() {
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-800">
                           {factory.factoryNumber}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() =>
+                              handleStatusToggle(factory._id, factory.isActive)
+                            }
+                            className="text-2xl transition-transform hover:scale-110"
+                            title={
+                              factory.isActive
+                                ? "Click to deactivate"
+                                : "Click to activate"
+                            }
+                          >
+                            {factory.isActive ? (
+                              <FaToggleOn className="text-green-600" />
+                            ) : (
+                              <FaToggleOff className="text-gray-400" />
+                            )}
+                          </button>
+                        </td>
+
+                        <td className="px-4 py-3 flex gap-2">
+                          <button
+                            className="text-blue-600 hover:text-blue-800"
+                            onClick={() => handleEdit(factory._id)}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            className="text-red-600 hover:text-red-800"
+                            onClick={() => handleDelete(factory._id)}
+                          >
+                            <FaTrash />
+                          </button>
+                          {/* 🔹 Centered Edit Modal */}
+                          {showEditModal && selectedFactory && (
+                            <div className="fixed inset-0 flex items-center justify-center z-50">
+                              <div className="bg-white border rounded-xl p-6 shadow-sm w-80">
+                                <h3 className="text-lg font-bold mb-3">
+                                  ✏️ Edit Factory
+                                </h3>
+                                <label className="block mb-1 text-sm font-medium">
+                                  Factory Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editFactoryName}
+                                  onChange={(e) =>
+                                    setEditFactoryName(e.target.value)
+                                  }
+                                  placeholder="Factory Name"
+                                  className="w-full px-2 py-1 border rounded mb-2 text-sm"
+                                />
+                                <label className="block mb-1 text-sm font-medium">
+                                  Factory Location
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editFactoryLocation}
+                                  onChange={(e) =>
+                                    setEditFactoryLocation(e.target.value)
+                                  }
+                                  placeholder="Factory Location"
+                                  className="w-full px-2 py-1 border rounded mb-2 text-sm"
+                                />
+                                <label className="block mb-1 text-sm font-medium">
+                                  Factory Number
+                                </label>
+                                <input
+                                  type="text"
+                                  value={selectedFactory?.factoryNumber || ""}
+                                  disabled
+                                  className="w-full px-2 py-1 border rounded mb-2 text-sm bg-gray-100 cursor-not-allowed"
+                                  placeholder="Factory Number"
+                                />
+
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => setShowEditModal(false)}
+                                    className="px-4 py-2 bg-gray-300 rounded-lg"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={handleSaveEdit}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

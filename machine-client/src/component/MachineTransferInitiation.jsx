@@ -138,7 +138,6 @@ function TransferMachine() {
     const validMachines = selectedMachines.filter((m) => m.value !== "none");
     const sourceFactoryId =
       user.role === "superadmin" ? fromFactory?.value : userFactory;
-
     if (!sourceFactoryId || !toFactory || !validMachines.length) {
       setMessage("❌ Please Select From Factory, Machines, and To Factory.");
       return;
@@ -192,7 +191,7 @@ function TransferMachine() {
     <>
       <Navbar />
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-6">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-3xl border border-gray-200">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-xl border border-gray-200">
           <h2 className="text-2xl font-bold mb-6 text-center">
             Machine Transfer Initiation
           </h2>

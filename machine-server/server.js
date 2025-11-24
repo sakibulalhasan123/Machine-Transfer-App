@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
@@ -12,6 +13,7 @@ const machineRoutes = require("./routes/machineRoutes");
 const transferRoutes = require("./routes/transferRoutes");
 const maintenanceRoutes = require("./routes/maintenanceRoutes");
 const machineIdleRoutes = require("./routes/machineIdleRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 // Load environment variables from .env file
 dotenv.config();
 
@@ -40,18 +42,68 @@ const io = new Server(server, {
 // Make io globally available
 app.set("io", io);
 
-// ===== Socket.IO Connection =====
+// // ===== Socket.IO Connection =====
+// io.on("connection", async (socket) => {
+//   console.log("User connected:", socket.id);
+
+//   // Send last 20 notifications on connection
+//   const Notification = require("./models/Notification");
+//   const notifications = await Notification.find()
+//     .sort({ createdAt: -1 })
+//     .limit(20)
+//     .populate("createdBy", "name role");
+
+//   socket.emit("allNotifications", notifications);
+
+//   socket.on("requestNotifications", async ({ page = 1, limit = 50 } = {}) => {
+//     const items = await Notification.find({})
+//       .sort({ createdAt: -1 })
+//       .skip((page - 1) * limit)
+//       .limit(limit)
+//       .populate("createdBy", "name role");
+//     socket.emit("allNotifications", items);
+//   });
+
+//   socket.on("disconnect", () => {
+//     console.log("User disconnected:", socket.id);
+//   });
+// });
+
 io.on("connection", async (socket) => {
   console.log("User connected:", socket.id);
 
-  // Send last 20 notifications on connection
-  const Notification = require("./models/Notification");
-  const notifications = await Notification.find()
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .populate("createdBy", "name role");
+  const token = socket.handshake.auth?.token;
+  if (!token) return;
 
-  socket.emit("allNotifications", notifications);
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+    const userRole = decoded.role; // 👈 role extract
+    // 🔹 Join room per user
+    socket.join(userId);
+    console.log(`User ${userId} joined room ${userId}`);
+
+    // Send last 20 notifications **only for this user**
+    const Notification = require("./models/Notification");
+    let notifications = [];
+    if (userRole === "superadmin") {
+      // 🔥 ADMIN will see ALL notifications
+      notifications = await Notification.find()
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate("createdBy", "name role");
+    } else {
+      notifications = await Notification.find({
+        $or: [{ recipients: userId }, { createdBy: userId }], // user sees only relevant notifications
+      })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .populate("createdBy", "name role");
+    }
+    socket.emit("allNotifications", notifications);
+  } catch (err) {
+    console.error("Invalid token:", err.message);
+  }
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
@@ -85,6 +137,7 @@ app.use("/api/maintenances", maintenanceRoutes);
 // All routes in machineIdleRoutes.js will be prefixed with /api/machineidles
 app.use("/api/machineidles", machineIdleRoutes);
 
+app.use("/api/notifications", notificationRoutes);
 // ==========================
 // Serve React build in production
 // ==========================

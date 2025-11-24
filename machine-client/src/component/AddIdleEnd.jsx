@@ -123,7 +123,7 @@ export default function IdleEndForm() {
     <>
       <Navbar />
       <div className="flex justify-center mt-10">
-        <div className="bg-white p-8 rounded shadow-md w-full max-w-md grid gap-4">
+        <div className="bg-white p-8 rounded shadow-md w-full max-w-xl grid gap-4">
           <h2 className="text-xl font-semibold mb-4">End Machine Idle</h2>
 
           {message.text && (

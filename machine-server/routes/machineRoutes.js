@@ -8,6 +8,10 @@ const {
   getMachinesByFactory,
   checkDuplicates,
   getAllMachineStatus,
+  getMachineById,
+  updateMachineStatus,
+  updateMachine,
+  softDeleteMachine,
 } = require("../controllers/machineController");
 
 // ==========================
@@ -31,5 +35,11 @@ router.post("/check-duplicates", protect, checkDuplicates);
 router.get("/", protect, getMachinesByFactory);
 
 router.get("/machine-status", getAllMachineStatus);
+
+router.get("/:id", protect, getMachineById);
+router.put("/:id/status", protect, updateMachineStatus);
+router.put("/:id", protect, updateMachine);
+router.delete("/:id", protect, softDeleteMachine);
+
 // Export the router so it can be used in app.js
 module.exports = router;

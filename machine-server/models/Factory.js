@@ -8,16 +8,29 @@ const factorySchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
+
     factoryLocation: {
       type: String,
       required: true,
       trim: true,
     },
+
     factoryNumber: {
       type: String,
       unique: true,
       trim: true,
     },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

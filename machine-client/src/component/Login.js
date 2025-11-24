@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock } from "lucide-react";
 import logoBanner from "../assets/logobanner.png"; // ✅ logo import (path ঠিক করো)
+import { socket } from "../socket"; // ⬅️ ADD THIS
 
 function Login() {
   const { login } = useContext(AuthContext);
@@ -34,6 +35,9 @@ function Login() {
 
       login({ token: data.token, ...data.user });
       localStorage.setItem("authToken", data.token);
+      // 🔥 SENDING TOKEN TO SOCKET.IO
+      socket.auth = { token: data.token };
+      socket.connect();
       navigate("/");
     } catch (err) {
       setError(err.message);

@@ -24,10 +24,10 @@ const machineIdleSchema = new mongoose.Schema(
     },
 
     reason: {
-      type: String, // just a string
-      required: true, // must have a value
-      trim: true, // removes extra spaces
-      index: true, // indexed for faster queries
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
     },
     description: {
       type: String,
@@ -43,13 +43,13 @@ const machineIdleSchema = new mongoose.Schema(
 
     endTime: {
       type: Date,
-      default: null, // null if still idle
+      default: null,
       index: true,
     },
 
     durationMinutes: {
       type: Number,
-      default: 0, // calculated automatically
+      default: 0,
     },
 
     status: {

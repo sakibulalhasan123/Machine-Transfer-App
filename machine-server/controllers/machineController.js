@@ -191,7 +191,9 @@ const checkDuplicates = async (req, res) => {
 // ➤ Get all machines grouped by factory
 const getMachinesByFactory = async (req, res) => {
   try {
-    const machines = await Machine.find()
+    const machines = await Machine.find({
+      isDeleted: { $ne: true }, // deleted না হলে সব দেখাবে
+    })
       .populate("factoryId", "factoryName factoryLocation")
       .populate("originFactory", "factoryName factoryLocation")
       .populate("createdBy", "name email")
@@ -280,10 +282,113 @@ const getAllMachineStatus = async (req, res) => {
   }
 };
 
+// controllers/machineController.js
+const getMachineById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const machine = await Machine.findById(id)
+      .populate("factoryId", "factoryName factoryLocation")
+      .populate("originFactory", "factoryName factoryLocation")
+      .populate("createdBy", "name email")
+      .lean();
+
+    if (!machine) {
+      return res.status(404).json({ message: "❌ Machine not found" });
+    }
+
+    res.status(200).json({ success: true, machine });
+  } catch (err) {
+    console.error("🔥 getMachineById error:", err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+// Toggle machine status
+const updateMachineStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const machine = await Machine.findByIdAndUpdate(
+      id,
+      { isActive },
+      { new: true }
+    );
+    if (!machine) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Machine not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Machine status updated",
+      data: machine,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const updateMachine = async (req, res) => {
+  const { id } = req.params;
+  const { machineCode, machineCategory, machineGroup, purchaseDate, status } =
+    req.body;
+
+  if (!machineCode || !machineCategory || !machineGroup) {
+    return res.status(400).json({
+      message: "⚠️ factoryId, machineCategory, machineGroup required",
+    });
+  }
+
+  try {
+    const machine = await Machine.findById(id);
+    if (!machine) {
+      return res.status(404).json({ message: "❌ Machine not found" });
+    }
+
+    // Update fields
+    machine.machineCode = machineCode;
+    machine.machineCategory = machineCategory;
+    machine.machineGroup = machineGroup;
+    if (purchaseDate) machine.purchaseDate = new Date(purchaseDate);
+    if (status) machine.status = status;
+
+    await machine.save();
+    res
+      .status(200)
+      .json({ success: true, message: "✅ Machine updated", machine });
+  } catch (err) {
+    console.error("🔥 updateMachine error:", err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+const softDeleteMachine = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const machine = await Machine.findById(id);
+    if (!machine) {
+      return res.status(404).json({ message: "❌ Machine not found" });
+    }
+
+    machine.isDeleted = true;
+    await machine.save();
+
+    res.status(200).json({ success: true, message: "✅ Machine soft deleted" });
+  } catch (err) {
+    console.error("🔥 softDeleteMachine error:", err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 module.exports = {
   addMachine,
   bulkAddMachines,
   checkDuplicates,
   getMachinesByFactory,
   getAllMachineStatus,
+  getMachineById,
+  updateMachineStatus,
+  updateMachine,
+  softDeleteMachine,
 };

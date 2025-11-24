@@ -1,7 +1,8 @@
 const MachineIdle = require("../models/MachineIdle");
 const Maintenance = require("../models/Maintenance");
 const Machine = require("../models/Machine");
-
+const Factory = require("../models/Factory");
+const NotificationService = require("./notificationController"); // or relative path
 // ✅ Get machines available for idle
 exports.getAvailableMachines = async (req, res) => {
   try {
@@ -99,6 +100,29 @@ exports.createIdle = async (req, res) => {
       { _id: { $in: machineId } },
       { $set: { status: "Machine Idle In-Progress" } }
     );
+
+    // ===============================
+    // 5️⃣ Fetch Machine & Factory Data
+    // ===============================
+    const machineData = await Machine.findById(machineId).select("machineCode");
+    const factoryData = await Factory.findById(factoryId).select("factoryName");
+
+    const machineCode = machineData ? machineData.machineCode : machineId;
+    const factoryName = factoryData ? factoryData.factoryName : factoryId;
+
+    // ===============================
+    // 6️⃣ Send Notification
+    // ===============================
+    await NotificationService.createAndEmitNotification(req, {
+      title: "Machine Idle Initiated",
+      message: `Machine "${machineCode}" at "${factoryName}" has been marked as idle due to "${reason}". Initiated by ${
+        req.user.name || "Someone"
+      }.`,
+      type: "machineIdle",
+      createdBy: req.user._id,
+    });
+
+    // ===============================
     res.status(201).json({ idle });
   } catch (err) {
     console.error(err);
@@ -171,7 +195,32 @@ exports.endIdle = async (req, res) => {
         });
       }
     }
+    // -----------------------------------------------------
+    // 🔹 Fetch names for Notification
+    // -----------------------------------------------------
+    const machineData = await Machine.findById(idle.machineId).select(
+      "machineCode"
+    );
+    const factoryData = await Factory.findById(idle.factoryId).select(
+      "factoryName"
+    );
 
+    const machineCode = machineData ? machineData.machineCode : idle.machineId;
+    const factoryName = factoryData ? factoryData.factoryName : idle.factoryId;
+
+    // -----------------------------------------------------
+    // 🔹 Send Notification
+    // -----------------------------------------------------
+    await NotificationService.createAndEmitNotification(req, {
+      title: "Idle Resolved",
+      message: `Machine "${machineCode}" at "${factoryName}" has been resolved from idle state after ${
+        idle.durationMinutes
+      } minutes. Resolved by ${req.user.name || "Someone"}.`,
+      type: "machineIdle",
+      createdBy: req.user._id,
+    });
+
+    // -----------------------------------------------------
     res.status(200).json({ idle });
   } catch (err) {
     console.error(err);
