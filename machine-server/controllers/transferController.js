@@ -194,6 +194,24 @@ exports.receiveTransfer = async (req, res) => {
       "factoryName"
     );
 
+    // ----------------------------------------
+    // 🔥 SAME Recipients logic from createTransfer
+    // ----------------------------------------
+
+    // Find all relevant users
+    const factoryUsers = await User.find({
+      factoryId: { $in: [transfer.fromFactory, transfer.toFactory] },
+    }).select("_id");
+
+    const admins = await User.find({ role: "admin" }).select("_id");
+
+    // Combine + remove duplicates
+    let recipients = [
+      ...factoryUsers.map((u) => u._id),
+      ...admins.map((a) => a._id),
+    ];
+
+    recipients = [...new Set(recipients.map(String))];
     await NotificationService.createAndEmitNotification(req, {
       title: "Transfer Received",
       message: `Machine ${
@@ -205,6 +223,7 @@ exports.receiveTransfer = async (req, res) => {
       }.`,
       type: "transfer",
       createdBy: req.user._id,
+      recipients, // 🔹 EXACTLY like createTransfer
     });
 
     // ----------------------------------------

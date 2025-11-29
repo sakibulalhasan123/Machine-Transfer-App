@@ -20,49 +20,6 @@ function Dashboard() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalData, setModalData] = useState([]);
 
-  // Fetch all dashboard data in parallel
-  // useEffect(() => {
-  //   const fetchAll = async () => {
-  //     setLoading(true);
-  //     try {
-  //       const urls = [
-  //         "/api/factories",
-  //         "/api/machines",
-  //         "/api/transfers",
-  //         "/api/maintenances",
-  //         "/api/machineidles",
-  //       ].map((path) => fetch(`${process.env.REACT_APP_API_URL}${path}`));
-
-  //       const [fRes, mRes, tRes, mtRes, idleRes] = await Promise.all(urls);
-  //       const [fJson, mJson, tJson, mtJson, idleJson] = await Promise.all([
-  //         fRes.json(),
-  //         mRes.json(),
-  //         tRes.json(),
-  //         mtRes.json(),
-  //         idleRes.json(),
-  //       ]);
-
-  //       setFactories(Array.isArray(fJson) ? fJson : fJson?.factories ?? []);
-
-  //       const machinesFlat = mJson.machines
-  //         ? mJson.machines
-  //         : mJson.machinesByFactory
-  //         ? Object.values(mJson.machinesByFactory).flat()
-  //         : [];
-  //       setMachines(machinesFlat);
-
-  //       setTransfers(tJson.transfers ?? []);
-  //       setMaintenances(mtJson.maintenances ?? []);
-  //       setIdles(idleJson.idles ?? []);
-  //     } catch (err) {
-  //       console.error("Error loading dashboard:", err);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   fetchAll();
-  // }, []);
   // 🔹 Fetch all dashboard data in parallel
   useEffect(() => {
     const fetchAll = async () => {

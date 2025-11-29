@@ -282,7 +282,7 @@ const getAllMachineStatus = async (req, res) => {
   }
 };
 
-// controllers/machineController.js
+// ➤ Get machine by ID with populated fields
 const getMachineById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -302,7 +302,7 @@ const getMachineById = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
-// Toggle machine status
+// ➤ Update machine status (isActive)
 const updateMachineStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -329,7 +329,7 @@ const updateMachineStatus = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
+// ➤ Update machine details
 const updateMachine = async (req, res) => {
   const { id } = req.params;
   const { machineCode, machineCategory, machineGroup, purchaseDate, status } =
@@ -363,6 +363,7 @@ const updateMachine = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+// ➤ Soft delete machine
 const softDeleteMachine = async (req, res) => {
   const { id } = req.params;
   try {

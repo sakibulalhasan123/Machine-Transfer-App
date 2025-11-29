@@ -49,6 +49,7 @@ function AllIdles() {
       });
       const data = await res.json();
       setIdles(data.idles || []);
+      console.log(data.idles);
     } catch (err) {
       console.error(err);
       setMessage({ type: "error", text: "❌ Failed to fetch idle records" });

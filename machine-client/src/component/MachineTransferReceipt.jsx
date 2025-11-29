@@ -359,7 +359,7 @@ function PendingTransfers() {
                       key={t._id}
                       className="hover:bg-blue-50 even:bg-gray-50 transition"
                     >
-                      <td className="border px-2 py-2">
+                      <td className="border px-2 py-2 text-center">
                         {(currentPage - 1) *
                           (rowsPerPage === "All"
                             ? paginatedTransfers.length

@@ -31,16 +31,7 @@ const addFactory = async (req, res) => {
     });
     await newFactory.save();
 
-    // // ✅ Create notification
-    // const io = req.app.get("io");
-    // const notification = await Notification.create({
-    //   message: `🏭 New factory added: ${newFactory.factoryName}`,
-    //   createdBy: req.user._id,
-    // });
-
-    // // ✅ Emit to all connected clients
-    // if (io) io.emit("factoryAdded", notification);
-    // create + emit notification
+    // ✅ Create notification
     await NotificationService.createAndEmitNotification(req, {
       title: "New factory added",
       message: `🏭 New Factory Name: ${newFactory.factoryName} added by ${
@@ -110,81 +101,7 @@ const getFactoryById = async (req, res) => {
     });
   }
 };
-// Update Factory
-// const updateFactory = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { factoryName, factoryLocation } = req.body;
-
-//     if (!factoryName?.trim() || !factoryLocation?.trim()) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Factory name and location are required",
-//       });
-//     }
-
-//     // Check duplicate except same ID
-//     const duplicate = await Factory.findOne({
-//       _id: { $ne: id },
-//       factoryName: { $regex: new RegExp(`^${factoryName}$`, "i") },
-//     });
-
-//     if (duplicate) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Another factory with this name already exists",
-//       });
-//     }
-
-//     const updatedFactory = await Factory.findByIdAndUpdate(
-//       id,
-//       {
-//         factoryName: factoryName.trim(),
-//         factoryLocation: factoryLocation.trim(),
-//         updatedBy: req.user._id,
-//         updatedAt: Date.now(),
-//       },
-//       { new: true }
-//     );
-
-//     if (!updatedFactory) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Factory not found",
-//       });
-//     }
-
-//     // Notification
-//     // const io = req.app.get("io");
-//     // const notification = await Notification.create({
-//     //   message: `✏️ Factory updated: ${updatedFactory.factoryName}`,
-//     //   createdBy: req.user._id,
-//     // });
-//     // if (io) io.emit("factoryUpdated", notification);
-//     await NotificationService.createAndEmitNotification(req, {
-//       title: "Factory updated",
-//       message: `🏭 ${updatedFactory.factoryName} updated by ${
-//         req.user.name || "someone"
-//       }`,
-//       type: "factory",
-//       createdBy: req.user._id,
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Factory updated successfully",
-//       data: updatedFactory,
-//     });
-//   } catch (error) {
-//     console.error("Error updating factory:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//       error: error.message,
-//     });
-//   }
-// };
-
+// Update Factory Status (active/inactive)
 const updateFactoryStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -213,7 +130,7 @@ const updateFactoryStatus = async (req, res) => {
     });
   }
 };
-
+// Update Factory Details
 const updateFactory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -282,7 +199,7 @@ const updateFactory = async (req, res) => {
   }
 };
 
-// Soft delete factory
+// Soft Delete Factory
 const deleteFactory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -302,12 +219,6 @@ const deleteFactory = async (req, res) => {
     await factory.save();
 
     // Notification
-    // const io = req.app.get("io");
-    // const notification = await Notification.create({
-    //   message: `🗑️ Factory soft-deleted: ${factory.factoryName}`,
-    //   createdBy: req.user._id,
-    // });
-    // if (io) io.emit("factoryDeleted", notification);
     await NotificationService.createAndEmitNotification(req, {
       title: "factory soft-deleted",
       message: `🏭 Factory:${factory.factoryName} soft deleted by ${
