@@ -13,7 +13,10 @@ const {
   updateMachine,
   softDeleteMachine,
 } = require("../controllers/machineController");
-
+const { getMachineQR } = require("../controllers/machineQRController");
+const {
+  getMachineLiveStatus,
+} = require("../controllers/machineStatusController");
 // ==========================
 // 🏭 Machine Routes
 // ==========================
@@ -30,6 +33,10 @@ router.post("/bulk", protect, bulkAddMachines);
 
 // Duplicate check (for Excel preview)
 router.post("/check-duplicates", protect, checkDuplicates);
+
+router.get("/:id/qr", getMachineQR);
+router.get("/:id/live-status", getMachineLiveStatus);
+
 // ➤ Get all machines grouped by factory
 // GET /api/machines
 router.get("/", protect, getMachinesByFactory);

@@ -360,7 +360,22 @@ exports.returnToOriginFactory = async (req, res) => {
         const toFactoryData = await Factory.findById(originFactory).select(
           "factoryName"
         );
+        // ======================================================
+        // 🔥 SAME RECIPIENT SYSTEM LIKE OTHER FUNCTIONS
+        // ======================================================
 
+        const factoryUsers = await User.find({
+          factoryId: { $in: [machine.factoryId, originFactory] },
+        }).select("_id");
+
+        const admins = await User.find({ role: "admin" }).select("_id");
+
+        let recipients = [
+          ...factoryUsers.map((u) => u._id.toString()),
+          ...admins.map((a) => a._id.toString()),
+        ];
+
+        recipients = [...new Set(recipients)];
         await NotificationService.createAndEmitNotification(req, {
           title: "Return To Origin Initiated",
           message: `Return process started for machine ${
@@ -370,6 +385,7 @@ exports.returnToOriginFactory = async (req, res) => {
           }". Initiated by ${req.user.name || "Someone"}.`,
           type: "transfer",
           createdBy: req.user._id,
+          recipients,
         });
 
         // ------------------------------------------
@@ -485,7 +501,22 @@ exports.receiveReturn = async (req, res) => {
     const fromFactory = await Factory.findById(transfer.fromFactory).select(
       "factoryName"
     );
+    // ----------------------------------------------------
+    // 🔥 SAME RECIPIENT LOGIC AS OTHER CONTROLLERS
+    // ----------------------------------------------------
 
+    const factoryUsers = await User.find({
+      factoryId: { $in: [transfer.fromFactory, transfer.toFactory] },
+    }).select("_id");
+
+    const admins = await User.find({ role: "admin" }).select("_id");
+
+    let recipients = [
+      ...factoryUsers.map((u) => u._id.toString()),
+      ...admins.map((a) => a._id.toString()),
+    ];
+
+    recipients = [...new Set(recipients)];
     await NotificationService.createAndEmitNotification(req, {
       title: "Return Completed",
       message: `Machine ${
@@ -497,6 +528,7 @@ exports.receiveReturn = async (req, res) => {
       }.`,
       type: "transfer",
       createdBy: req.user._id,
+      recipients,
       meta: {
         machineId: machine._id,
         transferId: transfer._id,

@@ -21,6 +21,10 @@ function FactoryMachineList() {
   const [editStatus, setEditStatus] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
 
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrImage, setQrImage] = useState("");
+  const [qrMachine, setQrMachine] = useState(null);
+
   const defaultItemsPerPage = 10;
   const itemsPerPageOptions = [5, 10, 20, 50];
 
@@ -119,7 +123,7 @@ function FactoryMachineList() {
         const sortedMachines = [...factoryMachines].sort((a, b) =>
           a.machineNumber.localeCompare(b.machineNumber, undefined, {
             numeric: true,
-          })
+          }),
         );
         sortedMachines.forEach((machine) => {
           rows.push({
@@ -153,7 +157,7 @@ function FactoryMachineList() {
       [["🏭 Factory Wise Machine List Report"]],
       {
         origin: "A1",
-      }
+      },
     );
     XLSX.utils.sheet_add_aoa(
       worksheet,
@@ -166,7 +170,7 @@ function FactoryMachineList() {
           })}`,
         ],
       ],
-      { origin: "A2" }
+      { origin: "A2" },
     );
     XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: "A3" }); // blank row
 
@@ -195,7 +199,7 @@ function FactoryMachineList() {
             text = cellValue.toString();
           }
           return text.length;
-        })
+        }),
       );
       return { wch: maxLength + 3 };
     });
@@ -280,9 +284,87 @@ function FactoryMachineList() {
         </span>
       ) : (
         part
-      )
+      ),
     );
   };
+
+  const handleViewQR = async (machine) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/${machine._id}/qr`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data = await res.json();
+
+      setQrImage(data.qrCode);
+      setQrMachine(machine);
+      setQrModalOpen(true);
+    } catch (err) {
+      alert("Failed to load QR");
+    }
+  };
+  // const handlePrintQR = () => {
+  //   const printContent = document.getElementById("qr-print-area").innerHTML;
+  //   const original = document.body.innerHTML;
+
+  //   document.body.innerHTML = `
+  //   <div style="display:flex;justify-content:center;align-items:center;height:100vh">
+  //     ${printContent}
+  //   </div>
+  // `;
+  //   window.print();
+  //   document.body.innerHTML = original;
+  //   window.location.reload();
+  // };
+  const handlePrintQR = () => {
+    const printContent = document.getElementById("qr-print-area").innerHTML;
+
+    // Create a new window
+    const printWindow = window.open("", "_blank", "width=400,height=300");
+    if (!printWindow) return alert("Popup blocked! Please allow popups.");
+
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>Print QR Sticker</title>
+        <style>
+          body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+          }
+          #qr-print-area {
+            width: 3in;
+            height: 2in;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px dashed #000;
+            box-sizing: border-box;
+            padding: 0.1in;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="qr-print-area">
+          ${printContent}
+        </div>
+      </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    // Don't reload page
+  };
+
   const handleMachineStatusToggle = async (id, currentStatus) => {
     const token = localStorage.getItem("authToken");
 
@@ -296,7 +378,7 @@ function FactoryMachineList() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ isActive: !currentStatus }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -319,7 +401,7 @@ function FactoryMachineList() {
         `${process.env.REACT_APP_API_URL}/api/machines/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       const data = await res.json();
       if (data.success) {
@@ -331,7 +413,7 @@ function FactoryMachineList() {
         setEditPurchaseDate(
           data.machine.purchaseDate
             ? new Date(data.machine.purchaseDate).toISOString().split("T")[0]
-            : ""
+            : "",
         );
         setEditStatus(data.machine.status);
         setShowEditModal(true);
@@ -364,7 +446,7 @@ function FactoryMachineList() {
             purchaseDate: editPurchaseDate,
             status: editStatus,
           }),
-        }
+        },
       );
       const data = await res.json();
       if (data.success) {
@@ -388,7 +470,7 @@ function FactoryMachineList() {
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       const data = await res.json();
       if (data.success) {
@@ -488,7 +570,7 @@ function FactoryMachineList() {
                   <p className="text-2xl font-extrabold">
                     {Object.values(filteredMachinesByFactory).reduce(
                       (acc, arr) => acc + arr.length,
-                      0
+                      0,
                     )}
                   </p>
                 </div>
@@ -540,12 +622,12 @@ function FactoryMachineList() {
                   const sortedMachines = [...factoryMachines].sort((a, b) =>
                     a.machineNumber.localeCompare(b.machineNumber, undefined, {
                       numeric: true,
-                    })
+                    }),
                   );
 
                   const paginatedMachines = getPaginatedMachines(
                     factoryKey,
-                    sortedMachines
+                    sortedMachines,
                   );
                   const totalPages = getTotalPages(factoryKey, sortedMachines);
                   const currentPage = factoryPages[factoryKey] || 1;
@@ -570,7 +652,7 @@ function FactoryMachineList() {
                             <br /> {" ("}
                             {
                               factoryMachines.filter(
-                                (m) => m.status === "In-House"
+                                (m) => m.status === "In-House",
                               ).length
                             }{" "}
                             In-House ,{" "}
@@ -578,7 +660,7 @@ function FactoryMachineList() {
                           <b>
                             {
                               factoryMachines.filter(
-                                (m) => m.status === "Transfer Initiated"
+                                (m) => m.status === "Transfer Initiated",
                               ).length
                             }{" "}
                             Transfer Initiated ,
@@ -587,7 +669,7 @@ function FactoryMachineList() {
                             {" "}
                             {
                               factoryMachines.filter(
-                                (m) => m.status === "Borrowed"
+                                (m) => m.status === "Borrowed",
                               ).length
                             }{" "}
                             Borrowed ,{" "}
@@ -595,7 +677,7 @@ function FactoryMachineList() {
                           <b>
                             {
                               factoryMachines.filter(
-                                (m) => m.status === "Return Initiated"
+                                (m) => m.status === "Return Initiated",
                               ).length
                             }{" "}
                             Return Initiated ,{" "}
@@ -603,7 +685,7 @@ function FactoryMachineList() {
                           <b>
                             {
                               factoryMachines.filter(
-                                (m) => m.status === "Maintenance In-Progress"
+                                (m) => m.status === "Maintenance In-Progress",
                               ).length
                             }{" "}
                             Maintenance In-Progress ,{" "}
@@ -611,7 +693,7 @@ function FactoryMachineList() {
                           <b>
                             {
                               factoryMachines.filter(
-                                (m) => m.status === "Machine Idle In-Progress"
+                                (m) => m.status === "Machine Idle In-Progress",
                               ).length
                             }{" "}
                             Machine Idle In-Progress {")"}
@@ -661,7 +743,7 @@ function FactoryMachineList() {
                               <td className="px-4 py-3">
                                 {machine.purchaseDate
                                   ? new Date(
-                                      machine.purchaseDate
+                                      machine.purchaseDate,
                                     ).toLocaleDateString("en-GB", {
                                       day: "2-digit",
                                       month: "short",
@@ -679,7 +761,7 @@ function FactoryMachineList() {
                                     day: "2-digit",
                                     month: "short",
                                     year: "numeric",
-                                  }
+                                  },
                                 )}
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -687,7 +769,7 @@ function FactoryMachineList() {
                                   onClick={() =>
                                     handleMachineStatusToggle(
                                       machine._id,
-                                      machine.isActive
+                                      machine.isActive,
                                     )
                                   }
                                   className="text-2xl transition-transform hover:scale-110"
@@ -718,11 +800,58 @@ function FactoryMachineList() {
                                 >
                                   <FaTrash />
                                 </button>
+                                <button
+                                  onClick={() => handleViewQR(machine)}
+                                  className="text-green-600 hover:text-green-800 text-sm border px-2 py-1 rounded"
+                                >
+                                  QR
+                                </button>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      {qrModalOpen && (
+                        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                          <div className="bg-white rounded-xl p-6 w-80 text-center shadow-lg">
+                            <div id="qr-print-area">
+                              <h3 className="font-bold text-lg">
+                                {qrMachine.machineCode}
+                              </h3>
+                              <p className="text-sm text-gray-500">
+                                {qrMachine.machineCategory} •{" "}
+                                {qrMachine.machineGroup}
+                              </p>
+
+                              <img
+                                src={qrImage}
+                                alt="QR"
+                                className="mx-auto my-4 w-48"
+                              />
+
+                              <p className="text-xs text-gray-600">
+                                Scan to view machine details
+                              </p>
+                            </div>
+
+                            <div className="flex justify-between mt-4">
+                              <button
+                                onClick={() => setQrModalOpen(false)}
+                                className="px-4 py-2 bg-gray-500 text-white rounded"
+                              >
+                                Close
+                              </button>
+                              <button
+                                onClick={handlePrintQR}
+                                className="px-4 py-2 bg-green-600 text-white rounded"
+                              >
+                                🖨️ Print
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Edit Modal */}
                       {showEditModal && (
                         <div className="fixed inset-0 flex items-center justify-center z-50">

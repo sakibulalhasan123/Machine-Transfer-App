@@ -31,7 +31,7 @@ function AddMachine() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         if (!res.ok) throw new Error("Failed to fetch factories");
         const data = await res.json();
@@ -68,6 +68,21 @@ function AddMachine() {
     return newErrors;
   };
 
+  const printQR = () => {
+    const printContents = document.getElementById("print-area").innerHTML;
+    const originalContents = document.body.innerHTML;
+
+    document.body.innerHTML = `
+    <div style="display:flex;justify-content:center;align-items:center;height:100vh">
+      ${printContents}
+    </div>
+  `;
+
+    window.print();
+    document.body.innerHTML = originalContents;
+    window.location.reload(); // UI ঠিক রাখতে
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validateForm();
@@ -101,11 +116,40 @@ function AddMachine() {
         return;
       }
 
-      Swal.fire(
-        "Success",
-        `Machine added successfully!\nCode: ${data.machine?.machineCode}`,
-        "success"
+      // 🔥 QR FETCH
+      const qrRes = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/machines/${data.machine._id}/qr`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
+      const qrData = await qrRes.json();
+
+      // Swal.fire(
+      //   "Success",
+      //   `Machine added successfully!\nCode: ${data.machine?.machineCode}`,
+      //   "success"
+      // );
+      Swal.fire({
+        title: "✅ Machine Added",
+        html: `
+    <div id="print-area" style="text-align:center">
+      <h3>${data.machine.machineCode}</h3>
+      <img src="${qrData.qrCode}" style="width:180px;margin:auto"/>
+      <p style="font-size:12px;margin-top:6px">
+        Scan for machine details
+      </p>
+    </div>
+  `,
+        showCancelButton: true,
+        confirmButtonText: "🖨️ Print QR",
+        cancelButtonText: "Done",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          printQR();
+        }
+      });
+
       setFormData({
         factoryId: "",
         machineCategory: "",
@@ -150,7 +194,7 @@ function AddMachine() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ machineCodes: codes }),
-        }
+        },
       );
       if (!res.ok) throw new Error("Failed to check duplicates");
       const data = await res.json();
@@ -216,7 +260,7 @@ function AddMachine() {
                 .trim() ===
               String(row.factoryName || "")
                 .toLowerCase()
-                .trim()
+                .trim(),
           );
           // purchaseDate might be present in Excel; normalize to yyyy-mm-dd for date input
           const purchaseDateRaw = row.purchaseDate ?? "";
@@ -304,7 +348,7 @@ function AddMachine() {
           machineGroup,
           machineCode,
           purchaseDate: purchaseDate || null,
-        })
+        }),
       );
 
       const res = await fetch(
@@ -316,7 +360,7 @@ function AddMachine() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const data = await res.json();
@@ -325,7 +369,7 @@ function AddMachine() {
       Swal.fire(
         "Success",
         `${data.count} machines uploaded successfully!`,
-        "success"
+        "success",
       );
       setBulkData([]);
       setBulkErrors([]);

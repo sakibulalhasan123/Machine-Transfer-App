@@ -23,6 +23,8 @@ import AllIdles from "./component/AllIdles";
 import MachineTransferReceipt from "./component/MachineTransferReceipt";
 import MachineReturnReceipt from "./component/MachineReturnReceipt";
 import UpdatePassword from "./component/UpdatePassword";
+import MachinePage from "./component/MachinePage";
+import MachineScanner from "./component/MachineScanner";
 
 function App() {
   return (
@@ -184,6 +186,26 @@ function App() {
             element={
               <ProtectedRoute roles={["superadmin"]}>
                 <UserList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/machines-details"
+            element={<div>Please select a machine</div>}
+          />
+          <Route
+            path="/machines-details/:id"
+            element={
+              <ProtectedRoute roles={["admin", "user", "superadmin"]}>
+                <MachinePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/machine-scan"
+            element={
+              <ProtectedRoute roles={["admin", "user", "superadmin"]}>
+                <MachineScanner />
               </ProtectedRoute>
             }
           />

@@ -1,6 +1,7 @@
 const Maintenance = require("../models/Maintenance");
 const Machine = require("../models/Machine");
 const Factory = require("../models/Factory");
+const User = require("../models/User");
 const NotificationService = require("./notificationController"); // or relative path
 /**
  * Get available machines for a factory
@@ -116,7 +117,14 @@ exports.createMaintenance = async (req, res) => {
     // Fetch factory Name
     const factoryData = await Factory.findById(factoryId).select("factoryName");
     const factoryName = factoryData ? factoryData.factoryName : factoryId;
+    const factoryUsers = await User.find({ factoryId }).select("_id");
+    const admins = await User.find({ role: "admin" }).select("_id");
 
+    let recipients = [
+      ...factoryUsers.map((u) => u._id),
+      ...admins.map((a) => a._id),
+    ];
+    recipients = [...new Set(recipients.map(String))];
     // Send Notification
     await NotificationService.createAndEmitNotification(req, {
       title: "Maintenance Initiation Created",
@@ -130,6 +138,7 @@ exports.createMaintenance = async (req, res) => {
 
       type: "maintenance",
       createdBy: req.user._id,
+      recipients,
     });
 
     // ---------------------------------------------------------
@@ -247,7 +256,22 @@ exports.updateMaintenanceStatus = async (req, res) => {
     const factoryName = factoryData
       ? factoryData.factoryName
       : maintenance.factoryId;
+    // ============================
+    // 🔥 RECIPIENTS HERE
+    // ============================
+    const factoryUsers = await User.find({
+      factoryId: maintenance.factoryId,
+    }).select("_id");
 
+    const admins = await User.find({ role: "admin" }).select("_id");
+
+    let recipients = [
+      ...factoryUsers.map((u) => u._id),
+      ...admins.map((a) => a._id),
+      req.user._id,
+    ];
+
+    recipients = [...new Set(recipients.map(String))]; // remove duplicates
     // ============================
     // 8️⃣ Send Notification
     // ============================
@@ -258,6 +282,7 @@ exports.updateMaintenanceStatus = async (req, res) => {
       }.`,
       type: "maintenance",
       createdBy: req.user._id,
+      recipients,
     });
     // ============================
     res

@@ -604,6 +604,28 @@ function Navbar() {
       roles: ["superadmin"],
       children: [{ to: "/users", label: "Users List", roles: ["superadmin"] }],
     },
+    {
+      title: "Machines Details",
+      roles: ["superadmin", "user"],
+      children: [
+        {
+          to: "/machines-details/:id",
+          label: "Machines Details",
+          roles: ["superadmin", "user"],
+        },
+      ],
+    },
+    {
+      title: "Machines Scan",
+      roles: ["superadmin", "user"],
+      children: [
+        {
+          to: "/machine-scan",
+          label: "Machines Scan",
+          roles: ["superadmin", "user"],
+        },
+      ],
+    },
   ];
 
   const getRoleBadge = (role) => {
@@ -693,7 +715,7 @@ function Navbar() {
                   </span>
                   <span
                     className={`hidden md:inline text-xs font-semibold px-2 py-0.5 rounded ${getRoleBadge(
-                      user.role
+                      user.role,
                     )}`}
                   >
                     {user.role?.toUpperCase()}

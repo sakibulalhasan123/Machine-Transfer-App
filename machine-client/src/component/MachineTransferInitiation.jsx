@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from "react";
 import Navbar from "./Navbar";
 import Select from "react-select";
 import { AuthContext } from "../context/AuthContext";
-
+import { QrReader } from "react-qr-reader"; // ✅ QR Scanner
 // ✅ Reusable select styles
 const customStyles = {
   control: (provided) => ({
@@ -50,6 +50,9 @@ function TransferMachine() {
   const [refreshMachines, setRefreshMachines] = useState(false);
   const userFactory = user?.factoryId;
 
+  const [qrScanResult, setQrScanResult] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
+
   useEffect(() => {
     const fetchFactories = async () => {
       const token = localStorage.getItem("authToken");
@@ -60,10 +63,11 @@ function TransferMachine() {
           `${process.env.REACT_APP_API_URL}/api/factories`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
         if (!res.ok) throw new Error("Failed to fetch factories");
         const data = await res.json();
+        console.log("Factories Data:", data); // 👈 here
         setFactories(Array.isArray(data) ? data : data.factories || []);
       } catch (err) {
         console.error("❌ Error loading factories:", err);
@@ -90,7 +94,7 @@ function TransferMachine() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (!res.ok) throw new Error("Failed to fetch machines");
@@ -109,7 +113,7 @@ function TransferMachine() {
                   _id: "none",
                   machineCode: "No machines available",
                 },
-              ]
+              ],
         );
       } catch (err) {
         console.error("❌ Error fetching machines:", err);
@@ -131,6 +135,32 @@ function TransferMachine() {
     setFactoryMachines([]);
     setToFactory(null);
   }, [fromFactory]);
+  // Whenever a QR is scanned
+  useEffect(() => {
+    if (!qrScanResult) return;
+
+    const machine = factoryMachines.find((m) => m.machineCode === qrScanResult);
+
+    if (!machine) {
+      setMessage(`❌ Machine with code "${qrScanResult}" not found`);
+      return;
+    }
+
+    // ✅ Avoid duplicates
+    setSelectedMachines((prev) => {
+      if (prev.some((m) => m.value === machine._id)) return prev;
+      return [
+        ...prev,
+        {
+          value: machine._id,
+          label: `${machine.machineCode} (${machine.machineCategory})`,
+        },
+      ];
+    });
+
+    setMessage(`✅ Machine "${qrScanResult}" added via QR`);
+    setQrScanResult(null);
+  }, [qrScanResult, factoryMachines]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -165,7 +195,7 @@ function TransferMachine() {
             remarks: remarks || "",
             status: "Transfer In-Progress",
           }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -257,6 +287,28 @@ function TransferMachine() {
                 isDisabled={!factoryMachines.length}
               />
             </div>
+            <div className="mb-4">
+              <button
+                type="button"
+                className="mb-2 px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+                onClick={() => setShowScanner((prev) => !prev)}
+              >
+                {showScanner ? "Close QR Scanner" : "Scan QR Code"}
+              </button>
+
+              {showScanner && (
+                <div className="border p-2 rounded">
+                  <QrReader
+                    onResult={(result, error) => {
+                      if (!!result) setQrScanResult(result?.text);
+                      if (!!error) console.warn(error);
+                    }}
+                    constraints={{ facingMode: "environment" }}
+                    containerStyle={{ width: "100%" }}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Remarks */}
             <div>
@@ -284,7 +336,7 @@ function TransferMachine() {
                       f._id !==
                       (user.role === "superadmin"
                         ? fromFactory?.value
-                        : userFactory)
+                        : userFactory),
                   )
                   .map((f) => ({
                     value: f._id,
