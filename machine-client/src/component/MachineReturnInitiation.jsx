@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "./Navbar";
 import Select from "react-select";
-
+import { Scanner } from "@yudiel/react-qr-scanner";
 const API_URL = process.env.REACT_APP_API_URL;
 
 const customStyles = {
@@ -49,6 +49,65 @@ function ReturnMachine() {
 
   const user = JSON.parse(localStorage.getItem("user"));
   const userFactory = user?.factoryId;
+
+  const [scanMode, setScanMode] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [manualCode, setManualCode] = useState("");
+  const handleMachineByCode = async (code) => {
+    if (!selectedFactory) {
+      setMessage("❌ Please select factory first");
+      return;
+    }
+    if (!code?.trim() || scanned) return;
+
+    setScanned(true);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_URL}/api/machines/code/${code.trim()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error();
+      const machine = await res.json();
+
+      const allowedStatuses = ["Borrowed"];
+      if (!allowedStatuses.includes(machine.status)) {
+        setMessage("❌ This machine is not eligible for return");
+        return;
+      }
+
+      if (
+        machine.factoryId?._id?.toString() !== selectedFactory.value?.toString()
+      ) {
+        setMessage("❌ This machine does not belong to selected factory");
+        return;
+      }
+
+      const exists = selectedMachines.some((m) => m.value === machine._id);
+      if (exists) {
+        setMessage("⚠️ Machine already added");
+        return;
+      }
+
+      setSelectedMachines((prev) => [
+        ...prev,
+        { value: machine._id, label: machine.machineCode },
+      ]);
+
+      setMessage("✅ Machine added");
+      setScanMode(false);
+    } catch {
+      setMessage("❌ Invalid or unavailable QR");
+    } finally {
+      setTimeout(() => setScanned(false), 1500);
+    }
+  };
+
+  const handleManualAdd = () => {
+    handleMachineByCode(manualCode);
+    setManualCode("");
+  };
 
   // Auto-clear messages
   useEffect(() => {
@@ -112,7 +171,7 @@ function ReturnMachine() {
         setLoading(true);
         const res = await fetch(
           `${API_URL}/api/transfers/machine/borrowed/${selectedFactory.value}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         if (!res.ok) throw new Error("Failed to load machines");
         const data = await res.json();
@@ -165,7 +224,7 @@ function ReturnMachine() {
             machineIds: selectedMachines.map((m) => m.value),
             fromFactory: selectedFactory.value, // 🔹 important for factoryAuth
           }),
-        }
+        },
       );
 
       let data;
@@ -182,11 +241,11 @@ function ReturnMachine() {
       }
 
       setMessage(
-        `✅ Initiated return for ${data.initiated.length}, Skipped ${data.skipped}`
+        `✅ Initiated return for ${data.initiated.length}, Skipped ${data.skipped}`,
       );
 
       setMachines((prev) =>
-        prev.filter((m) => !data.initiated.some((r) => r._id === m._id))
+        prev.filter((m) => !data.initiated.some((r) => r._id === m._id)),
       );
       setSelectedMachines([]);
     } catch (err) {
@@ -206,6 +265,52 @@ function ReturnMachine() {
             Machine Return Initiation
           </h2>
           <Message text={message} />
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              placeholder="Enter machine code"
+              value={manualCode}
+              onChange={(e) => setManualCode(e.target.value)}
+              disabled={scanMode}
+              className="border rounded-md px-3 py-2 text-sm flex-1"
+            />
+
+            <button
+              type="button"
+              onClick={handleManualAdd}
+              disabled={scanMode}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm"
+            >
+              Add
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setScanMode((p) => !p);
+                setScanned(false);
+                setMessage("");
+              }}
+              className="bg-gray-800 text-white px-4 py-2 rounded-md text-sm"
+            >
+              {scanMode ? "❌ Close" : "📷 Scan"}
+            </button>
+          </div>
+          {scanMode && (
+            <div className="w-full max-w-sm border rounded-xl bg-gray-50 overflow-hidden">
+              <Scanner
+                constraints={{ facingMode: "environment" }}
+                onScan={(codes) => {
+                  if (!codes?.length || scanned) return;
+                  handleMachineByCode(codes[0].rawValue);
+                }}
+                onError={(err) => console.warn("QR error:", err)}
+              />
+              <p className="text-xs text-center text-gray-500 py-2">
+                Scan machine QR
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleReturn} className="grid grid-cols-1 gap-6">
             {/* Factory Select */}
@@ -221,8 +326,8 @@ function ReturnMachine() {
                         label: `${f.factoryName} (${f.factoryLocation})`,
                       }))
                     : selectedFactory
-                    ? [selectedFactory]
-                    : []
+                      ? [selectedFactory]
+                      : []
                 }
                 value={selectedFactory}
                 onChange={setSelectedFactory}
@@ -247,8 +352,8 @@ function ReturnMachine() {
                   loading
                     ? "Loading..."
                     : machines.length === 0
-                    ? "No machines available"
-                    : "Select one or more machines..."
+                      ? "No machines available"
+                      : "Select one or more machines..."
                 }
                 isClearable
                 isMulti

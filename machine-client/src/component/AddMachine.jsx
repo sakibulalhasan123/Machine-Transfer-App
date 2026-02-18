@@ -69,18 +69,7 @@ function AddMachine() {
   };
 
   const printQR = () => {
-    const printContents = document.getElementById("print-area").innerHTML;
-    const originalContents = document.body.innerHTML;
-
-    document.body.innerHTML = `
-    <div style="display:flex;justify-content:center;align-items:center;height:100vh">
-      ${printContents}
-    </div>
-  `;
-
     window.print();
-    document.body.innerHTML = originalContents;
-    window.location.reload(); // UI ঠিক রাখতে
   };
 
   const handleSubmit = async (e) => {
@@ -118,7 +107,7 @@ function AddMachine() {
 
       // 🔥 QR FETCH
       const qrRes = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/machines/${data.machine._id}/qr`,
+        `${process.env.REACT_APP_API_URL}/api/machines/code/${data.machine.machineCode}/qr`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },

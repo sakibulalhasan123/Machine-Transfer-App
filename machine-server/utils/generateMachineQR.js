@@ -1,7 +1,7 @@
 const QRCode = require("qrcode");
 
-const generateMachineQR = async (machineId) => {
-  const data = `${process.env.FRONTEND_URL}/machines-details/${machineId}`;
+const generateMachineQR = async (machineCode) => {
+  const data = machineCode;
 
   return await QRCode.toDataURL(data, {
     errorCorrectionLevel: "H",

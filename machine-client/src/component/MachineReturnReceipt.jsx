@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "./Navbar";
 import Select from "react-select";
-
+import { Scanner } from "@yudiel/react-qr-scanner";
 const API_URL = process.env.REACT_APP_API_URL;
 
 const customStyles = {
@@ -45,6 +45,10 @@ export default function ReceiveReturn() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [scanMode, setScanMode] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [manualCode, setManualCode] = useState("");
+
   // const user = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("authToken");
 
@@ -58,7 +62,7 @@ export default function ReceiveReturn() {
           `${API_URL}/api/transfers/machine/pending-receive`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
         if (!res.ok) throw new Error("Failed to load machines");
         const data = await res.json();
@@ -101,7 +105,7 @@ export default function ReceiveReturn() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({ transferId: machine.transferId }),
-          }
+          },
         );
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Receive failed");
@@ -111,7 +115,7 @@ export default function ReceiveReturn() {
       setMessage(`✅ Received ${responses.length} machine(s) successfully.`);
       // Remove received machines from list
       setMachines((prev) =>
-        prev.filter((m) => !responses.some((r) => r._id === m._id))
+        prev.filter((m) => !responses.some((r) => r._id === m._id)),
       );
       setSelectedMachines([]);
     } catch (err) {
@@ -121,7 +125,43 @@ export default function ReceiveReturn() {
       setLoading(false);
     }
   };
+  const handleAddByCode = (code) => {
+    if (!code?.trim() || scanned) return;
 
+    const found = machines.find(
+      (m) => m.machineCode?.toLowerCase() === code.trim().toLowerCase(),
+    );
+
+    if (!found) {
+      setMessage("❌ This machine is not pending for receive");
+      return;
+    }
+
+    const exists = selectedMachines.some((m) => m.value === found._id);
+    if (exists) {
+      setMessage("⚠️ Machine already added");
+      return;
+    }
+
+    setSelectedMachines((prev) => [
+      ...prev,
+      {
+        value: found._id,
+        label: `${found.machineCode} (${found.machineCategory})`,
+        transferId: found.transferId,
+      },
+    ]);
+
+    setMessage("✅ Machine added");
+    setScanMode(false);
+    setScanned(true);
+
+    setTimeout(() => setScanned(false), 1500);
+  };
+  const handleManualAdd = () => {
+    handleAddByCode(manualCode);
+    setManualCode("");
+  };
   return (
     <>
       <Navbar />
@@ -135,9 +175,57 @@ export default function ReceiveReturn() {
           <form onSubmit={handleReceive} className="grid grid-cols-1 gap-6">
             {/* Machines Select */}
             <div>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  placeholder="Enter machine code"
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value)}
+                  disabled={scanMode}
+                  className="border rounded-md px-3 py-2 text-sm flex-1"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleManualAdd}
+                  disabled={scanMode}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm"
+                >
+                  Add
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScanMode((p) => !p);
+                    setScanned(false);
+                    setMessage("");
+                  }}
+                  className="bg-gray-800 text-white px-4 py-2 rounded-md text-sm"
+                >
+                  {scanMode ? "❌ Close" : "📷 Scan"}
+                </button>
+              </div>
+              {scanMode && (
+                <div className="w-full max-w-sm border rounded-xl bg-gray-50 overflow-hidden mb-4">
+                  <Scanner
+                    constraints={{ facingMode: "environment" }}
+                    onScan={(codes) => {
+                      if (!codes?.length || scanned) return;
+                      handleAddByCode(codes[0].rawValue);
+                    }}
+                    onError={(err) => console.warn("QR error:", err)}
+                  />
+                  <p className="text-xs text-center text-gray-500 py-2">
+                    Scan machine QR
+                  </p>
+                </div>
+              )}
+
               <label className="block text-gray-600 font-medium mb-1">
                 Select Machines to Return Receive
               </label>
+
               <Select
                 options={machines.map((m) => ({
                   value: m._id,
@@ -150,8 +238,8 @@ export default function ReceiveReturn() {
                   loading
                     ? "Loading..."
                     : machines.length === 0
-                    ? "No machines to receive"
-                    : "Select one or more machines..."
+                      ? "No machines to receive"
+                      : "Select one or more machines..."
                 }
                 isClearable
                 isMulti

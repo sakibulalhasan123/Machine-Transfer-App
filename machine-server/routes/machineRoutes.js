@@ -17,6 +17,7 @@ const { getMachineQR } = require("../controllers/machineQRController");
 const {
   getMachineLiveStatus,
 } = require("../controllers/machineStatusController");
+const { getMachineByCode } = require("../controllers/transferController");
 // ==========================
 // 🏭 Machine Routes
 // ==========================
@@ -33,9 +34,9 @@ router.post("/bulk", protect, bulkAddMachines);
 
 // Duplicate check (for Excel preview)
 router.post("/check-duplicates", protect, checkDuplicates);
-
-router.get("/:id/qr", getMachineQR);
-router.get("/:id/live-status", getMachineLiveStatus);
+router.get("/code/:machineCode", getMachineByCode);
+router.get("/code/:machineCode/live-status", getMachineLiveStatus);
+router.get("/code/:machineCode/qr", getMachineQR);
 
 // ➤ Get all machines grouped by factory
 // GET /api/machines

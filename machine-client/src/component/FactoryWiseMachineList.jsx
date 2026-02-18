@@ -275,6 +275,8 @@ function FactoryMachineList() {
 
   // Highlight matching search text
   const highlightMatch = (text) => {
+    if (!text || typeof text !== "string") return text || "—";
+
     if (!search) return text;
     const regex = new RegExp(`(${search})`, "gi");
     return text.split(regex).map((part, i) =>
@@ -292,7 +294,7 @@ function FactoryMachineList() {
     try {
       const token = localStorage.getItem("authToken");
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/machines/${machine._id}/qr`,
+        `${process.env.REACT_APP_API_URL}/api/machines/code/${machine.machineCode}/qr`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -306,19 +308,7 @@ function FactoryMachineList() {
       alert("Failed to load QR");
     }
   };
-  // const handlePrintQR = () => {
-  //   const printContent = document.getElementById("qr-print-area").innerHTML;
-  //   const original = document.body.innerHTML;
 
-  //   document.body.innerHTML = `
-  //   <div style="display:flex;justify-content:center;align-items:center;height:100vh">
-  //     ${printContent}
-  //   </div>
-  // `;
-  //   window.print();
-  //   document.body.innerHTML = original;
-  //   window.location.reload();
-  // };
   const handlePrintQR = () => {
     const printContent = document.getElementById("qr-print-area").innerHTML;
 
@@ -365,32 +355,78 @@ function FactoryMachineList() {
     // Don't reload page
   };
 
-  const handleMachineStatusToggle = async (id, currentStatus) => {
+  // const handleMachineStatusToggle = async (id, currentStatus) => {
+  //   const token = localStorage.getItem("authToken");
+
+  //   try {
+  //     const res = await fetch(
+  //       `${process.env.REACT_APP_API_URL}/api/machines/${id}/status`,
+  //       {
+  //         method: "PUT",
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify({ isActive: !currentStatus }),
+  //       },
+  //     );
+
+  //     const data = await res.json();
+  //     if (data.success) {
+  //       alert("Machine status updated");
+  //       fetchMachines(); // refresh list
+  //     } else {
+  //       alert(data.message);
+  //     }
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Failed to update machine status");
+  //   }
+  // };
+  const handleMachineStatusToggle = async (machine) => {
+    const action = machine.isActive ? "deactivate" : "activate";
+    const confirm = window.confirm(
+      `Are you sure you want to ${action} this machine (${machine.machineCode})?`,
+    );
+    if (!confirm) return;
+
     const token = localStorage.getItem("authToken");
 
     try {
+      // ✅ Optimistic UI update
+      setMachinesByFactory((prev) => {
+        const newMachinesByFactory = { ...prev };
+        Object.keys(newMachinesByFactory).forEach((factoryKey) => {
+          newMachinesByFactory[factoryKey] = newMachinesByFactory[
+            factoryKey
+          ].map((m) =>
+            m._id === machine._id ? { ...m, isActive: !m.isActive } : m,
+          );
+        });
+        return newMachinesByFactory;
+      });
+
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/machines/${id}/status`,
+        `${process.env.REACT_APP_API_URL}/api/machines/${machine._id}/status`,
         {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ isActive: !currentStatus }),
+          body: JSON.stringify({ isActive: !machine.isActive }),
         },
       );
 
       const data = await res.json();
-      if (data.success) {
-        alert("Machine status updated");
-        fetchMachines(); // refresh list
-      } else {
-        alert(data.message);
+      if (!data.success) {
+        alert(data.message || "Failed to update machine status");
+        fetchMachines(); // revert UI if fail
       }
     } catch (err) {
       console.error(err);
       alert("Failed to update machine status");
+      fetchMachines(); // revert UI
     }
   };
 
@@ -552,6 +588,13 @@ function FactoryMachineList() {
               </button>
             </div>
           </div>
+
+          {/* ✅ Message should go here */}
+          {message && (
+            <div className="mb-4 px-4 py-2 rounded bg-red-100 text-red-700 text-sm">
+              {message}
+            </div>
+          )}
           {/* ✅ Global Summary Section */}
           {Object.keys(filteredMachinesByFactory).length > 0 && (
             <div className="mb-6 p-6 rounded-xl bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg">
@@ -765,12 +808,30 @@ function FactoryMachineList() {
                                 )}
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <button
+                                {/* <button
                                   onClick={() =>
                                     handleMachineStatusToggle(
                                       machine._id,
                                       machine.isActive,
                                     )
+                                  }
+                                  className="text-2xl transition-transform hover:scale-110"
+                                  title={
+                                    machine.isActive
+                                      ? "Click to deactivate"
+                                      : "Click to activate"
+                                  }
+                                >
+                                  {machine.isActive ? (
+                                    <FaToggleOn className="text-green-600" />
+                                  ) : (
+                                    <FaToggleOff className="text-gray-400" />
+                                  )}
+                                </button> */}
+
+                                <button
+                                  onClick={() =>
+                                    handleMachineStatusToggle(machine)
                                   }
                                   className="text-2xl transition-transform hover:scale-110"
                                   title={
@@ -811,7 +872,7 @@ function FactoryMachineList() {
                           ))}
                         </tbody>
                       </table>
-                      {qrModalOpen && (
+                      {/* {qrModalOpen && (
                         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                           <div className="bg-white rounded-xl p-6 w-80 text-center shadow-lg">
                             <div id="qr-print-area">
@@ -850,7 +911,7 @@ function FactoryMachineList() {
                             </div>
                           </div>
                         </div>
-                      )}
+                      )} */}
 
                       {/* Edit Modal */}
                       {showEditModal && (
@@ -952,12 +1013,16 @@ function FactoryMachineList() {
                           <span className="text-gray-700 text-sm">Show:</span>
                           <select
                             value={itemsPerPage}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setItemsPerPageMap({
                                 ...itemsPerPageMap,
                                 [factoryKey]: Number(e.target.value),
-                              })
-                            }
+                              });
+                              setFactoryPages({
+                                ...factoryPages,
+                                [factoryKey]: 1, // ✅ reset page
+                              });
+                            }}
                             className="px-2 py-1 border border-gray-300 rounded"
                           >
                             {itemsPerPageOptions.map((opt) => (
@@ -1003,6 +1068,40 @@ function FactoryMachineList() {
                     </div>
                   );
                 })}
+            </div>
+          )}
+          {/* ✅ GLOBAL QR MODAL */}
+          {qrModalOpen && qrMachine && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+              <div className="bg-white rounded-xl p-6 w-80 text-center shadow-xl">
+                <div id="qr-print-area">
+                  <h3 className="font-bold text-lg">{qrMachine.machineCode}</h3>
+                  <p className="text-sm text-gray-500">
+                    {qrMachine.machineCategory} • {qrMachine.machineGroup}
+                  </p>
+
+                  <img src={qrImage} alt="QR" className="mx-auto my-4 w-48" />
+
+                  <p className="text-xs text-gray-600">
+                    Scan to view machine details
+                  </p>
+                </div>
+
+                <div className="flex justify-between mt-4">
+                  <button
+                    onClick={() => setQrModalOpen(false)}
+                    className="px-4 py-2 bg-gray-500 text-white rounded"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handlePrintQR}
+                    className="px-4 py-2 bg-green-600 text-white rounded"
+                  >
+                    🖨️ Print
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

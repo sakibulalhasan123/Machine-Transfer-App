@@ -3,6 +3,7 @@ import Navbar from "./Navbar";
 import "../../src/App.css";
 import { AuthContext } from "../context/AuthContext";
 import "react-datepicker/dist/react-datepicker.css";
+import { Scanner } from "@yudiel/react-qr-scanner";
 
 function PendingTransfers() {
   const { user } = useContext(AuthContext);
@@ -18,6 +19,10 @@ function PendingTransfers() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const [scanMode, setScanMode] = useState(false);
+  const [manualCode, setManualCode] = useState("");
+  const [scanned, setScanned] = useState(false);
 
   const API_URL = process.env.REACT_APP_API_URL;
 
@@ -39,12 +44,12 @@ function PendingTransfers() {
       if (!res.ok) throw new Error(data?.error || "Failed to fetch transfers");
 
       let filtered = (data.transfers || []).filter(
-        (t) => t.status === "Transfer In-Progress"
+        (t) => t.status === "Transfer In-Progress",
       );
 
       if (user.role !== "superadmin") {
         filtered = filtered.filter(
-          (t) => t.toFactory?._id?.toString() === user.factoryId?.toString()
+          (t) => t.toFactory?._id?.toString() === user.factoryId?.toString(),
         );
       }
 
@@ -55,13 +60,14 @@ function PendingTransfers() {
           filtered
             .flatMap((t) => [t.fromFactory, t.toFactory])
             .filter(Boolean)
-            .map((f) => [f._id, f])
+            .map((f) => [f._id, f]),
         ).values(),
       ];
       setFactories(uniqueFactories);
     } catch (err) {
       console.error("❌ Fetch error:", err);
       setMessage(`❌ ${err.message}`);
+      setScanned(false); // ✅ must
     } finally {
       setLoading(false);
     }
@@ -83,16 +89,73 @@ function PendingTransfers() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Receive failed");
 
       setPendingTransfers((prev) => prev.filter((t) => t._id !== transferId));
       setMessage("✅ Transfer received successfully!");
+
+      setScanned(false);
     } catch (err) {
       console.error("❌ Receive error:", err);
       setMessage(`❌ ${err.message}`);
+    }
+  };
+  const receiveByMachineCode = async (machineCode) => {
+    try {
+      if (!machineCode?.trim()) {
+        setMessage("❌ Machine code required");
+        return;
+      }
+
+      const token = localStorage.getItem("authToken");
+
+      const mRes = await fetch(`${API_URL}/api/machines/code/${machineCode}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const machine = await mRes.json();
+
+      if (!mRes.ok) {
+        setMessage(`❌ ${machine?.error || "Machine not found"}`);
+        setScanned(false);
+        return;
+      }
+
+      if (!machine || !machine._id) {
+        setMessage("❌ Invalid machine data");
+        setScanned(false);
+        return;
+      }
+
+      const transfer = pendingTransfers.find(
+        (t) => t.machineId?._id?.toString() === machine._id?.toString(),
+      );
+
+      if (!transfer) {
+        setMessage("❌ No pending transfer found for this machine");
+        return;
+      }
+      // ✅ Factory permission check
+      if (
+        user.role !== "superadmin" &&
+        transfer.toFactory?._id?.toString() !== user.factoryId?.toString()
+      ) {
+        setMessage("❌ This machine is not assigned to your factory");
+        setScanned(false);
+        return;
+      }
+
+      await handleReceive(transfer._id);
+
+      setManualCode("");
+      setScanMode(false);
+      setScanned(false);
+    } catch (err) {
+      console.error(err);
+      setMessage(`❌ ${err.message}`);
+      setScanned(false);
     }
   };
 
@@ -114,14 +177,14 @@ function PendingTransfers() {
       const localTransferDate = new Date(
         transferDate.getFullYear(),
         transferDate.getMonth(),
-        transferDate.getDate()
+        transferDate.getDate(),
       );
 
       const localFromDate = fromDate
         ? new Date(
             fromDate.getFullYear(),
             fromDate.getMonth(),
-            fromDate.getDate()
+            fromDate.getDate(),
           )
         : null;
 
@@ -154,7 +217,7 @@ function PendingTransfers() {
       ? filteredTransfers
       : filteredTransfers.slice(
           (currentPage - 1) * rowsPerPage,
-          currentPage * rowsPerPage
+          currentPage * rowsPerPage,
         );
   const totalPendingTransfers = filteredTransfers.length;
 
@@ -173,12 +236,12 @@ function PendingTransfers() {
     const localTDate = new Date(
       tDate.getFullYear(),
       tDate.getMonth(),
-      tDate.getDate()
+      tDate.getDate(),
     );
     const localToday = new Date(
       today.getFullYear(),
       today.getMonth(),
-      today.getDate()
+      today.getDate(),
     );
 
     const diffTime = localToday - localTDate; // milliseconds
@@ -214,6 +277,59 @@ function PendingTransfers() {
               {message}
             </div>
           )}
+          <div className="flex flex-col gap-4 mb-6">
+            {/* Manual */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter Machine Code"
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                disabled={scanMode}
+                className={`px-3 py-2 border rounded-md w-56 text-sm ${
+                  scanMode ? "bg-gray-100 cursor-not-allowed" : ""
+                }`}
+              />
+
+              <button
+                disabled={scanMode}
+                onClick={() => receiveByMachineCode(manualCode)}
+                className={`px-4 py-2 rounded-md text-sm text-white ${
+                  scanMode
+                    ? "bg-indigo-300 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"
+                }`}
+              >
+                Receive
+              </button>
+
+              <button
+                onClick={() => setScanMode((p) => !p)}
+                className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md text-sm"
+              >
+                {scanMode ? "❌ Close Scanner" : "📷 Scan QR"}
+              </button>
+            </div>
+
+            {/* QR Scanner */}
+            {scanMode && (
+              <div className="w-full max-w-sm p-4 border rounded-lg bg-gray-50">
+                <Scanner
+                  constraints={{ facingMode: "environment" }}
+                  onScan={(codes) => {
+                    if (!codes?.length || scanned) return;
+                    const code = codes[0].rawValue;
+                    setScanned(true);
+                    receiveByMachineCode(code);
+                  }}
+                  onError={(error) => console.error(error)}
+                />
+                <p className="text-xs text-center text-gray-500 mt-2">
+                  Scan machine QR code
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-4 mt-6 mb-8 items-end">
@@ -222,12 +338,12 @@ function PendingTransfers() {
               value={fromFactoryFilter?.value || ""}
               onChange={(e) => {
                 const selected = factories.find(
-                  (f) => f._id === e.target.value
+                  (f) => f._id === e.target.value,
                 );
                 setFromFactoryFilter(
                   selected
                     ? { value: selected._id, label: selected.factoryName }
-                    : null
+                    : null,
                 );
                 setCurrentPage(1);
               }}
@@ -246,12 +362,12 @@ function PendingTransfers() {
               value={toFactoryFilter?.value || ""}
               onChange={(e) => {
                 const selected = factories.find(
-                  (f) => f._id === e.target.value
+                  (f) => f._id === e.target.value,
                 );
                 setToFactoryFilter(
                   selected
                     ? { value: selected._id, label: selected.factoryName }
-                    : null
+                    : null,
                 );
                 setCurrentPage(1);
               }}
@@ -433,7 +549,7 @@ function PendingTransfers() {
                 value={rowsPerPage}
                 onChange={(e) => {
                   setRowsPerPage(
-                    e.target.value === "All" ? "All" : parseInt(e.target.value)
+                    e.target.value === "All" ? "All" : parseInt(e.target.value),
                   );
                   setCurrentPage(1);
                 }}

@@ -194,7 +194,7 @@ function App() {
             element={<div>Please select a machine</div>}
           />
           <Route
-            path="/machines-details/:id"
+            path="/machines-details/:machineCode"
             element={
               <ProtectedRoute roles={["admin", "user", "superadmin"]}>
                 <MachinePage />

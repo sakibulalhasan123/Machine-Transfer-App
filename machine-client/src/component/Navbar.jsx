@@ -609,7 +609,7 @@ function Navbar() {
       roles: ["superadmin", "user"],
       children: [
         {
-          to: "/machines-details/:id",
+          to: "/machines-details/:machineCode",
           label: "Machines Details",
           roles: ["superadmin", "user"],
         },

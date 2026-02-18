@@ -8,6 +8,7 @@ const NotificationService = require("./notificationController"); // or relative 
  * Get all machines of a factory
  * @route GET /api/factories/:factoryId/machines
  */
+
 exports.getMachinesByFactory = async (req, res) => {
   try {
     const { factoryId } = req.params;
@@ -21,6 +22,26 @@ exports.getMachinesByFactory = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
+// GET /api/machines/code/:machineCode
+exports.getMachineByCode = async (req, res) => {
+  try {
+    const { machineCode } = req.params;
+
+    const machine = await Machine.findOne({ machineCode })
+      .populate("factoryId", "factoryName")
+      .lean();
+
+    if (!machine) {
+      return res.status(404).json({ error: "Machine not found" });
+    }
+
+    return res.json(machine);
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 /**
  * Create Transfer
  * @route POST /api/transfers
@@ -55,13 +76,13 @@ exports.createTransfer = async (req, res) => {
         if (lastTransfer && lastTransfer.status !== "Returned")
           return machineId;
         return null;
-      })
+      }),
     );
     const blocked = blockedMachines.filter(Boolean);
     if (blocked.length)
       return res.status(400).json({
         error: `Cannot transfer machine(s) [${blocked.join(
-          ", "
+          ", ",
         )}] before return to origin factory`,
       });
 
@@ -76,14 +97,14 @@ exports.createTransfer = async (req, res) => {
           transferDate: new Date(),
           status: "Transfer In-Progress",
           remarks: remarks || "",
-        })
-      )
+        }),
+      ),
     );
 
     // ✅ Update machines safely
     const updateResult = await Machine.updateMany(
       { _id: { $in: machineIds }, factoryId: fromFactory, status: "In-House" },
-      { $set: { status: "Transfer Initiated" } }
+      { $set: { status: "Transfer Initiated" } },
     );
 
     if (updateResult.matchedCount !== machineIds.length) {
@@ -93,17 +114,15 @@ exports.createTransfer = async (req, res) => {
     }
     // Fetch machine codes For Notifications
     const machines = await Machine.find({ _id: { $in: machineIds } }).select(
-      "machineCode"
+      "machineCode",
     );
     const machineCodes = machines.map((m) => m.machineCode);
 
     // Fetch factory names
-    const fromFactoryData = await Factory.findById(fromFactory).select(
-      "factoryName"
-    );
-    const toFactoryData = await Factory.findById(toFactory).select(
-      "factoryName"
-    );
+    const fromFactoryData =
+      await Factory.findById(fromFactory).select("factoryName");
+    const toFactoryData =
+      await Factory.findById(toFactory).select("factoryName");
 
     const fromFactoryName = fromFactoryData
       ? fromFactoryData.factoryName
@@ -126,7 +145,7 @@ exports.createTransfer = async (req, res) => {
       message: `Transfer Initiated: ${
         machineCodes.length
       } machine(s) (${machineCodes.join(
-        ", "
+        ", ",
       )}) have been successfully transfer Initiated from "${fromFactoryName}" to "${toFactoryName}" by ${
         req.user.name || "Someone"
       }.`,
@@ -183,15 +202,15 @@ exports.receiveTransfer = async (req, res) => {
 
     // Machine Code fetch
     const machineData = await Machine.findById(transfer.machineId).select(
-      "machineCode"
+      "machineCode",
     );
 
     // Factory Names fetch
     const fromFactory = await Factory.findById(transfer.fromFactory).select(
-      "factoryName"
+      "factoryName",
     );
     const toFactory = await Factory.findById(transfer.toFactory).select(
-      "factoryName"
+      "factoryName",
     );
 
     // ----------------------------------------
@@ -350,16 +369,15 @@ exports.returnToOriginFactory = async (req, res) => {
 
         // Machine Code fetch
         const machineData = await Machine.findById(machine._id).select(
-          "machineCode"
+          "machineCode",
         );
 
         // Factory names fetch (from current and origin)
         const fromFactoryData = await Factory.findById(
-          machine.factoryId
+          machine.factoryId,
         ).select("factoryName");
-        const toFactoryData = await Factory.findById(originFactory).select(
-          "factoryName"
-        );
+        const toFactoryData =
+          await Factory.findById(originFactory).select("factoryName");
         // ======================================================
         // 🔥 SAME RECIPIENT SYSTEM LIKE OTHER FUNCTIONS
         // ======================================================
@@ -429,7 +447,7 @@ exports.getPendingReceiveMachines = async (req, res) => {
     // machine + transferId attach করা (frontend select করার জন্য)
     const machinesWithTransferId = machines.map((m) => {
       const t = transfers.find(
-        (tr) => tr.machineId.toString() === m._id.toString()
+        (tr) => tr.machineId.toString() === m._id.toString(),
       );
       return {
         ...m,
@@ -491,15 +509,15 @@ exports.receiveReturn = async (req, res) => {
 
     // Fetch machine code
     const machineData = await Machine.findById(machine._id).select(
-      "machineCode"
+      "machineCode",
     );
 
     // Fetch factory names
     const originFactory = await Factory.findById(transfer.toFactory).select(
-      "factoryName"
+      "factoryName",
     );
     const fromFactory = await Factory.findById(transfer.fromFactory).select(
-      "factoryName"
+      "factoryName",
     );
     // ----------------------------------------------------
     // 🔥 SAME RECIPIENT LOGIC AS OTHER CONTROLLERS
@@ -611,7 +629,7 @@ exports.getMachineHistory = async (req, res) => {
     // 3️⃣ প্রতিটা মেশিনের history বানাও
     const machinesWithHistory = machines.map((machine) => {
       const transfers = allTransfers.filter(
-        (t) => t.machineId.toString() === machine._id.toString()
+        (t) => t.machineId.toString() === machine._id.toString(),
       );
 
       const factoryHistoryMap = {};
@@ -872,7 +890,7 @@ exports.getOriginFactorySummary = async (req, res) => {
       originFactoryObj.totalCreated += 1;
 
       const transfers = allTransfers.filter(
-        (t) => t.machineId?.toString() === machine._id.toString()
+        (t) => t.machineId?.toString() === machine._id.toString(),
       );
 
       const factoryHistoryMap = {};
@@ -1040,7 +1058,7 @@ exports.getOriginFactorySummary = async (req, res) => {
               factoryName: "-",
               factoryLocation: "-",
               factoryNumber: "-",
-            }
+            },
           );
 
         fObj.machines.push({

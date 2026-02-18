@@ -19,7 +19,7 @@ async function getNextMachineNumbers(count, session) {
   const counter = await Counter.findOneAndUpdate(
     { _id: `machine-${year}` },
     { $inc: { seq: count } },
-    { new: true, upsert: true, session }
+    { new: true, upsert: true, session },
   );
 
   const startSeq = counter.seq - count + 1;
@@ -115,7 +115,7 @@ const bulkAddMachines = async (req, res) => {
 
     const codes = machines.map((m) => m.machineCode);
     const duplicatesInRequest = codes.filter(
-      (code, idx) => codes.indexOf(code) !== idx
+      (code, idx) => codes.indexOf(code) !== idx,
     );
     if (duplicatesInRequest.length) {
       return res.status(400).json({
@@ -138,7 +138,7 @@ const bulkAddMachines = async (req, res) => {
 
     const machineNumbers = await getNextMachineNumbers(
       machines.length,
-      session
+      session,
     );
     machines = machines.map((m, idx) => ({
       ...m,
@@ -244,13 +244,13 @@ const getAllMachineStatus = async (req, res) => {
     // Step 3: প্রতিটা মেশিনে related IDs attach করা
     const machinesWithRelations = machines.map((machine) => {
       const relatedTransfer = transfers.find(
-        (t) => t.machineId.toString() === machine._id.toString()
+        (t) => t.machineId.toString() === machine._id.toString(),
       );
       const relatedMaintenance = maintenances.find(
-        (m) => m.machineId.toString() === machine._id.toString()
+        (m) => m.machineId.toString() === machine._id.toString(),
       );
       const relatedIdle = idles.find(
-        (i) => i.machineId.toString() === machine._id.toString()
+        (i) => i.machineId.toString() === machine._id.toString(),
       );
 
       return {
@@ -311,7 +311,7 @@ const updateMachineStatus = async (req, res) => {
     const machine = await Machine.findByIdAndUpdate(
       id,
       { isActive },
-      { new: true }
+      { new: true },
     );
     if (!machine) {
       return res
